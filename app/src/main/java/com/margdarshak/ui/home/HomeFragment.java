@@ -30,7 +30,6 @@ import com.mapbox.android.core.location.LocationEngine;
 import com.mapbox.android.core.location.LocationEngineCallback;
 import com.mapbox.android.core.location.LocationEngineProvider;
 import com.mapbox.android.core.location.LocationEngineResult;
-import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
 import com.mapbox.api.directions.v5.DirectionsCriteria;
 import com.mapbox.api.directions.v5.DirectionsService;
@@ -64,6 +63,7 @@ import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceAutocompleteFrag
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceSelectionListener;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
+import com.margdarshak.ActivityPermissionListener;
 import com.margdarshak.R;
 import com.margdarshak.routing.MargdarshakDirection;
 import com.margdarshak.routing.OSRMService;
@@ -122,7 +122,21 @@ public class HomeFragment extends Fragment implements
         mapboxMap.setStyle(Style.MAPBOX_STREETS,
                 style -> {
                     permissionResultListener
-                            .requestLocationPermission(new LocationPermissionCallback(mapboxMap, style));
+                            .requestLocationPermission(new ActivityPermissionListener.LocationPermissionCallback(mapboxMap, style) {
+                                @Override
+                                public void onGrant() {
+                                    Log.d(TAG, "granted.. now enabling location component");
+                                    enableLocationComponent(style);
+                                }
+
+                                @Override
+                                public void onDenial() {
+                                    Log.d(TAG, "denied.. should show location button");
+                                    enableLocationComponent(style);
+                                    myLocationButton.setOnClickListener(v -> permissionResultListener.requestLocationPermission(this));
+                                    myLocationButton.setVisibility(View.VISIBLE);
+                                }
+                            });
                     style.addImage(PLACE_MARKER, getResources().getDrawable(R.drawable.location_on_accent_36dp, null));
                     style.addSource(new GeoJsonSource(PLACE_ICON_SOURCE_ID));
                     style.addLayer(new SymbolLayer(PLACE_ICON_LAYER_ID, PLACE_ICON_SOURCE_ID).withProperties(
@@ -182,9 +196,12 @@ public class HomeFragment extends Fragment implements
     }
     private void makeGeocodeSearch(final LatLng latLng) {
         try {
+            Log.d(TAG, "here");
             mapboxMap.getStyle(loadedMapStyle -> {
                 GeoJsonSource source = loadedMapStyle.getSourceAs(PLACE_ICON_SOURCE_ID);
+                Log.d(TAG, "here2");
                 if (source != null) {
+                    Log.d(TAG, "here3");
                     source.setGeoJson(Point.fromLngLat(latLng.getLongitude(),
                             latLng.getLatitude()));
                 }
@@ -226,6 +243,7 @@ public class HomeFragment extends Fragment implements
     }
 
     private void displayPlaceInfo(CarmenFeature carmenFeature) {
+        Log.d(TAG, "here4");
         CardView infoCard = getView().findViewById(R.id.info_frame);
         infoCard.setVisibility(View.VISIBLE);
         getView().findViewById(R.id.close_info).setOnClickListener(v -> {
@@ -562,28 +580,4 @@ public class HomeFragment extends Fragment implements
 
     }
 
-    public interface ActivityPermissionListener extends PermissionsListener{
-        void requestLocationPermission(LocationPermissionCallback locationPermissionCallback);
-    }
-
-    public class LocationPermissionCallback {
-        MapboxMap mapboxMap;
-        Style style;
-
-        public LocationPermissionCallback(MapboxMap mapboxMap, Style style) {
-            this.mapboxMap = mapboxMap;
-            this.style = style;
-        }
-
-        public void onGrant() {
-            Log.d(TAG, "granted.. now enabling location component");
-            enableLocationComponent(style);
-        }
-        public void onDenial() {
-            Log.d(TAG, "denied.. should show location button");
-            enableLocationComponent(style);
-            myLocationButton.setOnClickListener(v -> permissionResultListener.requestLocationPermission(this));
-            myLocationButton.setVisibility(View.VISIBLE);
-        }
-    }
 }

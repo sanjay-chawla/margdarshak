@@ -32,4 +32,6 @@
     <!-- Place Picker -->
     <string name="selected_place_info">Selected location information:\n%1$s</string>
     <string name="go_to_picker_activity">Go to place picker activity</string>
+    <string name="available_bike_stands">Available bike stands:\n%1$s</string>
+    <string name="tap_on_marker_instruction">Tap on a marker</string>
 </resources>

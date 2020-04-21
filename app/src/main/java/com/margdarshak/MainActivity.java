@@ -2,7 +2,6 @@ package com.margdarshak;
 
 import android.os.Bundle;
 import android.os.StrictMode;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
 import android.widget.ImageView;
@@ -13,8 +12,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.drawerlayout.widget.DrawerLayout;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentTransaction;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -23,10 +20,11 @@ import androidx.navigation.ui.NavigationUI;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.material.navigation.NavigationView;
+import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
 import com.mapbox.mapboxsdk.Mapbox;
-import com.margdarshak.ui.home.HomeFragment.ActivityPermissionListener;
-import com.margdarshak.ui.home.HomeFragment.LocationPermissionCallback;
+import com.mapbox.mapboxsdk.maps.MapboxMap;
+import com.mapbox.mapboxsdk.maps.Style;
 import com.margdarshak.util.CircleTransformation;
 import com.squareup.picasso.Picasso;
 
@@ -144,3 +142,5 @@ public class MainActivity extends AppCompatActivity implements ActivityPermissio
         }
     }
 }
+
+
