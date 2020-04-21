@@ -167,7 +167,6 @@ public abstract class MargdarshakDirection extends
     @Override
     public Response<DirectionsResponse> executeCall() throws IOException {
         Response<DirectionsResponse> response = super.executeCall();
-        //this.a
         MargdarshakDirectionResponseFactory factory = new MargdarshakDirectionResponseFactory(this);
         return factory.generate(response);
     }
@@ -272,7 +271,7 @@ public abstract class MargdarshakDirection extends
     @Override
     protected abstract String baseUrl();
 
-    @Nullable
+    @NonNull
     abstract String accessToken();
 
     @Nullable
@@ -747,7 +746,7 @@ public abstract class MargdarshakDirection extends
          * @return this builder for chaining options together
          * @since 2.1.0
          */
-        public abstract com.margdarshak.routing.MargdarshakDirection.Builder accessToken(@Nullable String accessToken);
+        public abstract com.margdarshak.routing.MargdarshakDirection.Builder accessToken(@NonNull String accessToken);
 
         /**
          * Optionally change the APIs base URL to something other then the default Mapbox one.
@@ -983,10 +982,10 @@ public abstract class MargdarshakDirection extends
 
             com.margdarshak.routing.MargdarshakDirection directions = autoBuild();
 
-            /*if (!MapboxUtils.isAccessTokenValid(directions.accessToken())) {
+            if (!MapboxUtils.isAccessTokenValid(directions.accessToken())) {
                 throw new ServicesException("Using Mapbox Services requires setting a valid access"
                         + " token.");
-            }*/
+            }
             return directions;
         }
     }
