@@ -1,6 +1,8 @@
 package com.margdarshak.ui.home;
 
 import android.content.Context;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.PointF;
 import android.location.Location;
 import android.os.Bundle;
@@ -61,10 +63,14 @@ import com.mapbox.mapboxsdk.maps.Style;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceAutocompleteFragment;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceSelectionListener;
+import com.mapbox.mapboxsdk.style.layers.LineLayer;
+import com.mapbox.mapboxsdk.style.layers.Property;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
 import com.margdarshak.ActivityPermissionListener;
+import com.margdarshak.MyRouteRecyclerViewAdapter;
 import com.margdarshak.R;
+import com.margdarshak.RouteFragment;
 import com.margdarshak.routing.MargdarshakDirection;
 import com.margdarshak.routing.OSRMService;
 import com.margdarshak.ui.slideshow.SlideshowViewModel;
@@ -81,6 +87,10 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconOffset;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineCap;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineColor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineJoin;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineWidth;
 
 public class HomeFragment extends Fragment implements
         OnMapReadyCallback {
@@ -91,6 +101,9 @@ public class HomeFragment extends Fragment implements
     private static final String PLACE_ICON_SOURCE_ID = "place-icon-source-id";
     private static final String PLACE_MARKER = "placeMarker";
     private static final String PLACE_ICON_LAYER_ID = "place-layer-id";
+    private static final String ICON_LAYER_ID = "icon-layer-id";
+    private static final String ICON_SOURCE_ID = "icon-source-id";
+    private static final String RED_PIN_ICON_ID = "red-pin-icon-id";
     public static final int CAMERA_ANIMATION_TIME = 2000;
     private static final int PLACE_SELECTOR_REQUEST_CODE = 899;
     private static final String PLACE_PICKER_LAYER_ID = "place-picker-layer-id";
@@ -103,7 +116,8 @@ public class HomeFragment extends Fragment implements
     private LocationEngine locationEngine;
     private LocationComponent locationComponent;
     private PlaceAutocompleteFragment autocompleteFragment;
-    private LatLng selectedPoint;
+    private RouteFragment routeFragment;
+    private CarmenFeature selectedPoint;
 
     @Override
     public void onAttach(Context context) {
@@ -151,7 +165,6 @@ public class HomeFragment extends Fragment implements
             PointF screenPoint = mapboxMap.getProjection().toScreenLocation(point);
             getPointFeatures(screenPoint);
             makeGeocodeSearch(point);
-            selectedPoint = point;
             return false;
         });
     }
@@ -171,6 +184,7 @@ public class HomeFragment extends Fragment implements
         searchFragmentContainer = root.findViewById(R.id.search_fragment_container);
         searchTextBox = root.findViewById(R.id.search_box_text);
         setUpSearchFragment(savedInstanceState);
+        setUpRouteFragment(savedInstanceState);
         return root;
     }
 
@@ -225,6 +239,7 @@ public class HomeFragment extends Fragment implements
                         if (results.size() > 0) {
                             CarmenFeature feature = results.get(0);
                             displayPlaceInfo(feature);
+                            selectedPoint = feature;
                         } else {
                             Toast.makeText(getActivity(), "No result found",
                                     Toast.LENGTH_SHORT).show();
@@ -272,6 +287,18 @@ public class HomeFragment extends Fragment implements
         }
     }
 
+    private void setUpRouteFragment(Bundle savedInstanceState){
+        if (savedInstanceState == null) {
+            routeFragment = RouteFragment.newInstance(1);
+            getChildFragmentManager().beginTransaction()
+                    .add(R.id.route_list_fragment_container, routeFragment, TAG)
+                    .hide(routeFragment)
+                    .commit();
+        } else {
+            routeFragment = (RouteFragment)
+                    getParentFragmentManager().findFragmentByTag(TAG);
+        }
+    }
 
     private void setUpSearch() {
         searchTextBox.setBackgroundColor(getResources().getColor(R.color.colorWhite, null));
@@ -298,8 +325,7 @@ public class HomeFragment extends Fragment implements
 
                 });
                 displayPlaceInfo(carmenFeature);
-                selectedPoint = new LatLng(((Point) carmenFeature.geometry()).latitude(),
-                        ((Point) carmenFeature.geometry()).longitude());
+                selectedPoint = carmenFeature;
                 locationComponent.setCameraMode(CameraMode.NONE);
                 myLocationButton.setVisibility(View.VISIBLE);
                 finish();
@@ -323,6 +349,11 @@ public class HomeFragment extends Fragment implements
         });
     }
 
+    private void expandRoute(RouteFragment fragment){
+        getChildFragmentManager().beginTransaction()
+                .show(autocompleteFragment)
+                .commit();
+    }
     private void expandSearch(PlaceAutocompleteFragment autocompleteFragment, InputMethodManager imm) {
         getChildFragmentManager().beginTransaction()
                 .show(autocompleteFragment)
@@ -428,14 +459,17 @@ public class HomeFragment extends Fragment implements
                 if(selectedPoint != null) {
                     mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
                         Location currentLocation = mapboxMap.getLocationComponent().getLastKnownLocation();
-                        Point origin = Point.fromLngLat(selectedPoint.getLongitude(), selectedPoint.getLatitude());
+                        Point origin = Point.fromLngLat(selectedPoint.center().longitude(), selectedPoint.center().latitude());
                         Point destination = Point.fromLngLat(currentLocation.getLongitude(), currentLocation.getLatitude());
 
-                        //initSource(style, origin, destination);
+                        initSource(style, origin, destination);
 
-                        //initLayers(style);
+                        initLayers(style);
 
                         getRoute(mapboxMap, origin, destination);
+
+                        getChildFragmentManager().beginTransaction()
+                                .replace(R.id.route_list_fragment_container, )
 
                     });
                     Snackbar.make(view, "Http call complete", Snackbar.LENGTH_LONG)
@@ -580,4 +614,38 @@ public class HomeFragment extends Fragment implements
 
     }
 
+    private void initSource(@NonNull Style loadedMapStyle, Point origin, Point destination) {
+        loadedMapStyle.addSource(new GeoJsonSource(ROUTE_SOURCE_ID,
+                FeatureCollection.fromFeatures(new Feature[] {})));
+
+        GeoJsonSource iconGeoJsonSource = new GeoJsonSource(ICON_SOURCE_ID, FeatureCollection.fromFeatures(new Feature[] {
+                Feature.fromGeometry(Point.fromLngLat(origin.longitude(), origin.latitude())),
+                Feature.fromGeometry(Point.fromLngLat(destination.longitude(), destination.latitude()))}));
+        loadedMapStyle.addSource(iconGeoJsonSource);
+    }
+
+
+    private void initLayers(@NonNull Style loadedMapStyle) {
+        LineLayer routeLayer = new LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID);
+
+        // Add the LineLayer to the map. This layer will display the directions route.
+        routeLayer.setProperties(
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND),
+                lineWidth(5f),
+                lineColor(Color.parseColor("#009688"))
+        );
+        loadedMapStyle.addLayer(routeLayer);
+
+        // Add icons
+        loadedMapStyle.addImage(RED_PIN_ICON_ID, BitmapFactory.decodeResource(getResources(),
+                R.drawable.mapbox_marker_icon_default));
+
+        // Add icon-layers to the map
+        loadedMapStyle.addLayer(new SymbolLayer(ICON_LAYER_ID, ICON_SOURCE_ID).withProperties(
+                iconImage(RED_PIN_ICON_ID),
+                iconIgnorePlacement(true),
+                iconAllowOverlap(true),
+                iconOffset(new Float[] {0f, -9f})));
+    }
 }

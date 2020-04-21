@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:mapbox="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -39,68 +40,6 @@
             android:background="@drawable/button_background"
             android:visibility="gone" />
 
-        <androidx.cardview.widget.CardView
-            mapbox:cardCornerRadius="10dp"
-            mapbox:cardBackgroundColor="@color/colorPrimary"
-            mapbox:cardElevation="8dp"
-            mapbox:contentPadding="15dp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_margin="15dp"
-            android:id="@+id/info_frame"
-            android:animateLayoutChanges="true"
-            android:visibility="gone" >
-
-            <LinearLayout android:orientation="vertical"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:id="@+id/info_frame_text_layout">
-
-                <TextView
-                    android:id="@+id/selected_location_info_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:singleLine="true"
-                    android:textColor="@color/mapbox_plugins_navy"
-                    android:textColorLink="@color/mapbox_plugins_navy"
-                    android:textSize="20sp"
-                    android:typeface="sans" />
-
-                <TextView
-                    android:id="@+id/selected_location_info_address"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/mapbox_blue"
-                    android:textColorLink="@color/mapbox_blue"
-                    android:textSize="16sp"
-                    android:typeface="sans" />
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/get_directions"
-                    android:layout_width="wrap_content"
-                    android:layout_height="44dp"
-                    android:text="Directions"
-                    style="@style/Widget.MaterialComponents.Chip.Action"
-                    app:chipIcon="@drawable/directions_white_36dp"
-                    app:chipBackgroundColor="@color/colorAccent"
-                    app:chipIconVisible="true"
-                    app:chipIconSize="20dp"
-                    android:textColor="@color/colorPrimary"
-                    />
-
-            </LinearLayout>
-
-            <ImageButton
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/mapbox_ic_clear"
-                android:layout_gravity="end|top"
-                android:id="@+id/close_info"
-                android:backgroundTint="@color/colorPrimary"
-                />
-
-        </androidx.cardview.widget.CardView>
 
     <FrameLayout
         android:id="@+id/search_fragment_container"
@@ -142,6 +81,9 @@
             app:layout_constraintEnd_toStartOf="parent"
             app:layout_constraintStart_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
+
     </FrameLayout>
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
