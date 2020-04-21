@@ -433,7 +433,7 @@ public class HomeFragment extends Fragment implements
 
                         initLayers(style);
 
-                        getRoute(mapboxMap, origin, destination);
+                        getRouteCustom(mapboxMap, origin, destination);
 
                     });
                     Snackbar.make(view, "Http call complete", Snackbar.LENGTH_LONG)

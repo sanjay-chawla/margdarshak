@@ -6,6 +6,7 @@ import com.mapbox.api.directions.v5.models.RouteOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import retrofit2.Response;
 
@@ -71,7 +72,7 @@ public class MargdarshakDirectionResponseFactory {
                             .exclude(mapboxDirections.exclude())
                             .voiceUnits(mapboxDirections.voiceUnits())
                             .accessToken(mapboxDirections.accessToken())
-                            .requestUuid(response.body().uuid())
+                            .requestUuid(UUID.randomUUID().toString())
                             .baseUrl(mapboxDirections.baseUrl())
                             .walkingOptions(mapboxDirections.walkingOptions())
                             .build()
