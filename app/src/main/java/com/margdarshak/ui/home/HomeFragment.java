@@ -1,12 +1,8 @@
 package com.margdarshak.ui.home;
 
 import android.content.Context;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.PointF;
-import android.graphics.PorterDuff;
 import android.location.Location;
-import android.opengl.Visibility;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -43,7 +39,6 @@ import com.mapbox.api.directions.v5.models.DirectionsResponse;
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.mapbox.api.geocoding.v5.GeocodingCriteria;
 import com.mapbox.api.geocoding.v5.MapboxGeocoding;
-import com.mapbox.api.geocoding.v5.models.CarmenContext;
 import com.mapbox.api.geocoding.v5.models.CarmenFeature;
 import com.mapbox.api.geocoding.v5.models.GeocodingResponse;
 import com.mapbox.core.MapboxService;
@@ -58,7 +53,6 @@ import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.location.LocationComponent;
 import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions;
 import com.mapbox.mapboxsdk.location.OnCameraTrackingChangedListener;
-import com.mapbox.mapboxsdk.location.OnLocationCameraTransitionListener;
 import com.mapbox.mapboxsdk.location.modes.CameraMode;
 import com.mapbox.mapboxsdk.location.modes.RenderMode;
 import com.mapbox.mapboxsdk.maps.MapView;
@@ -68,13 +62,12 @@ import com.mapbox.mapboxsdk.maps.Style;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceAutocompleteFragment;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceSelectionListener;
-import com.mapbox.mapboxsdk.style.layers.LineLayer;
-import com.mapbox.mapboxsdk.style.layers.Property;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
 import com.margdarshak.R;
 import com.margdarshak.routing.MargdarshakDirection;
 import com.margdarshak.routing.OSRMService;
+import com.margdarshak.ui.slideshow.SlideshowViewModel;
 
 import java.util.List;
 import java.util.Map;
@@ -84,16 +77,10 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 import static com.mapbox.core.constants.Constants.PRECISION_6;
-import static com.mapbox.mapboxsdk.style.layers.Property.NONE;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconOffset;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineCap;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineColor;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineJoin;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineWidth;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility;
 
 public class HomeFragment extends Fragment implements
         OnMapReadyCallback {
@@ -101,10 +88,7 @@ public class HomeFragment extends Fragment implements
     private static final String TAG = HomeFragment.class.getSimpleName();
     private static final String ROUTE_LAYER_ID = "route-layer-id";
     private static final String ROUTE_SOURCE_ID = "route-source-id";
-    private static final String ICON_LAYER_ID = "icon-layer-id";
-    private static final String ICON_SOURCE_ID = "icon-source-id";
     private static final String PLACE_ICON_SOURCE_ID = "place-icon-source-id";
-    private static final String RED_PIN_ICON_ID = "red-pin-icon-id";
     private static final String PLACE_MARKER = "placeMarker";
     private static final String PLACE_ICON_LAYER_ID = "place-layer-id";
     public static final int CAMERA_ANIMATION_TIME = 2000;
@@ -288,7 +272,7 @@ public class HomeFragment extends Fragment implements
                         source.setGeoJson(FeatureCollection.fromFeatures(
                                 new Feature[] {Feature.fromJson(carmenFeature.toJson())}));
                     }
-                    loadedMapStyle.removeLayer(ROUTE_LAYER_ID);
+                    //loadedMapStyle.removeLayer(ROUTE_LAYER_ID);
                     // Move map camera to the selected location
                     moveCameraTo(((Point) carmenFeature.geometry()).latitude(),
                             ((Point) carmenFeature.geometry()).longitude());
@@ -429,9 +413,9 @@ public class HomeFragment extends Fragment implements
                         Point origin = Point.fromLngLat(selectedPoint.getLongitude(), selectedPoint.getLatitude());
                         Point destination = Point.fromLngLat(currentLocation.getLongitude(), currentLocation.getLatitude());
 
-                        initSource(style, origin, destination);
+                        //initSource(style, origin, destination);
 
-                        initLayers(style);
+                        //initLayers(style);
 
                         getRoute(mapboxMap, origin, destination);
 
@@ -454,52 +438,6 @@ public class HomeFragment extends Fragment implements
         }
     }
 
-    private void initSource(@NonNull Style loadedMapStyle, Point origin, Point destination) {
-        loadedMapStyle.addSource(new GeoJsonSource(ROUTE_SOURCE_ID,
-                FeatureCollection.fromFeatures(new Feature[] {})));
-
-        GeoJsonSource iconGeoJsonSource = new GeoJsonSource(ICON_SOURCE_ID, FeatureCollection.fromFeatures(new Feature[] {
-                Feature.fromGeometry(Point.fromLngLat(origin.longitude(), origin.latitude())),
-                Feature.fromGeometry(Point.fromLngLat(destination.longitude(), destination.latitude()))}));
-        loadedMapStyle.addSource(iconGeoJsonSource);
-    }
-
-    private void initDroppedMarker(@NonNull Style loadedMapStyle) {
-        // Add the marker image to map
-        //loadedMapStyle.addImage("dropped-icon-image", BitmapFactory.decodeResource(
-        //        getResources(), R.drawable.location_on_accent_36dp));
-        //loadedMapStyle.addSource(new GeoJsonSource(PLACE_ICON_SOURCE_ID));
-        loadedMapStyle.addLayer(new SymbolLayer(PLACE_PICKER_LAYER_ID,
-                PLACE_ICON_SOURCE_ID).withProperties(
-                iconImage("dropped-icon-image"),
-                visibility(NONE),
-                iconAllowOverlap(true),
-                iconIgnorePlacement(true)
-        ));
-    }
-    private void initLayers(@NonNull Style loadedMapStyle) {
-        LineLayer routeLayer = new LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID);
-
-        // Add the LineLayer to the map. This layer will display the directions route.
-        routeLayer.setProperties(
-                lineCap(Property.LINE_CAP_ROUND),
-                lineJoin(Property.LINE_JOIN_ROUND),
-                lineWidth(5f),
-                lineColor(Color.parseColor("#009688"))
-        );
-        loadedMapStyle.addLayer(routeLayer);
-
-        // Add icons
-        loadedMapStyle.addImage(RED_PIN_ICON_ID, BitmapFactory.decodeResource(getResources(),
-                R.drawable.mapbox_marker_icon_default));
-
-        // Add icon-layers to the map
-        loadedMapStyle.addLayer(new SymbolLayer(ICON_LAYER_ID, ICON_SOURCE_ID).withProperties(
-                iconImage(RED_PIN_ICON_ID),
-                iconIgnorePlacement(true),
-                iconAllowOverlap(true),
-                iconOffset(new Float[] {0f, -9f})));
-    }
 
     private void getRoute(MapboxMap mapboxMap, Point origin, Point destination) {
         MapboxService<DirectionsResponse, DirectionsService> client = MapboxDirections.builder()
@@ -525,6 +463,10 @@ public class HomeFragment extends Fragment implements
                 }
                 Log.d(TAG, "Response from mapbox: " + response.body().toString());
                 // Get the directions route
+                List<DirectionsRoute> routes = response.body().routes();
+
+                SlideshowViewModel routeViewModel = new SlideshowViewModel(routes);
+                /*
                 DirectionsRoute currentRoute = response.body().routes().get(0);
 
                 // Make a toast which displays the route's distance
@@ -546,7 +488,7 @@ public class HomeFragment extends Fragment implements
                                             PRECISION_6))));
                         }
                     });
-                }
+                }*/
             }
             @Override
             public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
@@ -583,6 +525,9 @@ public class HomeFragment extends Fragment implements
                 }
                 Log.d(TAG, "Response from mapbox: " + response.body().toString());
                 // Get the directions route
+                List<DirectionsRoute> routes = response.body().routes();
+
+                /*
                 DirectionsRoute currentRoute = response.body().routes().get(0);
 
                 // Make a toast which displays the route's distance
@@ -605,6 +550,7 @@ public class HomeFragment extends Fragment implements
                         }
                     });
                 }
+                */
             }
             @Override
             public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
@@ -616,7 +562,6 @@ public class HomeFragment extends Fragment implements
 
     }
 
-    // Define the events that the fragment will use to communicate
     public interface ActivityPermissionListener extends PermissionsListener{
         void requestLocationPermission(LocationPermissionCallback locationPermissionCallback);
     }
