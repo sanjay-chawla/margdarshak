@@ -13,7 +13,7 @@
     <string name="menu_tools">Tools</string>
     <string name="menu_share">Share</string>
     <string name="menu_send">Send</string>
-    <string name="search">Search</string>
+    <string name="search">Search here</string>
 
     <string name="mapbox_access_token">pk.eyJ1Ijoic2FuamF5Y2hhd2xhIiwiYSI6ImNrMnR3NDJpeTFicGUzbm80dnhjeGJnNXkifQ.jQZ4qTUeohs9l08WMfl7Hw</string>
     <string name="directions_activity_toast_message">Route is %1$f meters long</string>
@@ -28,4 +28,8 @@
     <string name="invalid_username">Not a valid username</string>
     <string name="invalid_password">Password must be >5 characters</string>
     <string name="login_failed">"Login failed"</string>
+
+    <!-- Place Picker -->
+    <string name="selected_place_info">Selected location information:\n%1$s</string>
+    <string name="go_to_picker_activity">Go to place picker activity</string>
 </resources>
