@@ -2,6 +2,7 @@ package com.margdarshak;
 
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
 import android.widget.ImageView;
@@ -12,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -22,24 +24,28 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.material.navigation.NavigationView;
 import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
+import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.Style;
+import com.margdarshak.ui.home.HomeViewModel;
 import com.margdarshak.util.CircleTransformation;
 import com.squareup.picasso.Picasso;
 
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements ActivityPermissionListener {
+public class MainActivity extends AppCompatActivity implements ActivityPermissionListener, RouteFragment.OnListFragmentInteractionListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private AppBarConfiguration mAppBarConfiguration;
     private PermissionsManager permissionsManager;
     private LocationPermissionCallback locationPermissionCallback;
+    private HomeViewModel homeViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        homeViewModel = new ViewModelProvider(this).get(HomeViewModel.class);
         // Context init
         Mapbox.getInstance(getApplicationContext(), getString(R.string.mapbox_access_token));
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
@@ -140,6 +146,13 @@ public class MainActivity extends AppCompatActivity implements ActivityPermissio
         if(account.getPhotoUrl() != null) {
             Picasso.get().load(account.getPhotoUrl()).transform(new CircleTransformation()).into((ImageView) navigationView.getHeaderView(0).findViewById(R.id.userpicture));
         }
+    }
+
+    @Override
+    public void onListFragmentInteraction(DirectionsRoute item) {
+        Log.d(TAG, ">> Item selected : " + item.distance());
+        homeViewModel.setRouteSelected(Boolean.TRUE);
+        homeViewModel.setSelectedRoute(item);
     }
 }
 

@@ -115,6 +115,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:animateLayoutChanges="true"
+            android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
@@ -139,11 +140,6 @@
                         mapbox:srcCompat="@drawable/mapbox_ic_arrow_back" />
 
                 </FrameLayout>
-
-                <View
-                    android:layout_width="2dp"
-                    android:layout_height="match_parent"
-                    android:background="?android:attr/listDivider" />
 
                 <LinearLayout
                     android:id="@+id/route_upper_view_layout"
@@ -340,19 +336,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:animateLayoutChanges="true"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
             android:visibility="gone"
             app:cardBackgroundColor="@color/colorPrimary"
             app:cardElevation="8dp"
-            app:contentPadding="15dp">
+            app:contentPadding="15dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
             <FrameLayout
                 android:id="@+id/route_list_fragment_container"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                />
+                android:layout_height="match_parent" />
 
         </androidx.cardview.widget.CardView>
 
@@ -394,7 +389,7 @@
             android:paddingEnd="16dp"
             android:background="@drawable/button_background"
             android:drawableEnd="@drawable/search_black_24dp"
-            android:elevation="4dp"
+            android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="parent"
             app:layout_constraintStart_toEndOf="parent"
