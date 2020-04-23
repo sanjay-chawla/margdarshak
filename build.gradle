@@ -13,7 +13,17 @@ buildscript {
         // in the individual module build.gradle files
     }
 }
-
+plugins {
+    id "org.sonarqube" version "2.8"
+}
+sonarqube {
+    properties {
+        property "sonar.projectKey", "sanjay-chawla_margdarshak"
+        property "sonar.organization", "sanjay-chawla"
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.login", "cff8f695604f89d6426df122957f7479795efbc3"
+    }
+}
 allprojects {
     repositories {
         google()
