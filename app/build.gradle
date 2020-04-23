@@ -22,8 +22,34 @@ android {
         sourceCompatibility = 1.8
         targetCompatibility = 1.8
     }
-}
+    flavorDimensions "mock"
 
+    productFlavors {
+        mock {
+            dimension "mock"
+        }
+        prod {
+            // No special config
+        }
+    }
+}
+def build_param = "${build}";
+
+if (build_param != "devCI") {
+    //exclude dev
+    android.variantFilter { variant ->
+        if (variant.getFlavors().get(0).name.equals('mock')) {
+            variant.setIgnore(true);
+        }
+    }
+} else {
+    //exclude all but dev
+    android.variantFilter { variant ->
+        if (!variant.getFlavors().get(0).name.equals('mock')) {
+            variant.setIgnore(true);
+        }
+    }
+}
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation 'androidx.appcompat:appcompat:1.1.0'
