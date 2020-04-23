@@ -18,6 +18,6 @@ jobs:
       with:
         java-version: 1.8
     - name: Build with Gradle
-      run: ./gradlew build
+      run: ./gradlew clean build -Pbuild=devCI
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@v1.1
