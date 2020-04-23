@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:mapbox="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -16,4 +18,72 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <com.mapbox.mapboxsdk.maps.MapView
+            android:id="@+id/mapView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            mapbox:mapbox_cameraZoom="14"
+            />
+
+        <ImageButton
+            android:id="@+id/locationFAB"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="end|top"
+            android:src="@drawable/ic_gps_fixed_24dp"
+            android:layout_marginEnd="@dimen/fab_margin"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintBottom_toTopOf="@+id/info_frame"
+            app:layout_constraintRight_toRightOf="parent"
+            app:backgroundTint="@color/colorWhite"
+            android:background="@drawable/button_background"
+            android:visibility="gone" />
+
+
+    <FrameLayout
+        android:id="@+id/search_fragment_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="56dp"
+        android:background="@drawable/search_backgroud"
+        android:animateLayoutChanges="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <EditText
+            android:id="@+id/search_box_text"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:cursorVisible="false"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:autofillHints="@string/search"
+            android:hint="@string/search"
+            android:inputType="textNoSuggestions"
+            android:singleLine="true"
+            android:textColor="@color/mapbox_plugins_navy"
+            android:textColorHint="@color/mapbox_plugins_light_navy"
+            android:textColorLink="@color/mapbox_plugins_navy"
+            android:textCursorDrawable="@drawable/mapbox_color_text_cursor"
+            android:textSize="16sp"
+            android:typeface="sans"
+            android:paddingStart="64dp"
+            android:paddingEnd="16dp"
+            android:background="@drawable/button_background"
+            android:drawableEnd="@drawable/search_black_24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+
+    </FrameLayout>
+
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>

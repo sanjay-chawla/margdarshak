@@ -4,9 +4,7 @@ import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PointF;
-import android.graphics.PorterDuff;
 import android.location.Location;
-import android.opengl.Visibility;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -24,29 +22,24 @@ import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.ViewModelStore;
+import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.chip.Chip;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.JsonElement;
 import com.mapbox.android.core.location.LocationEngine;
 import com.mapbox.android.core.location.LocationEngineCallback;
 import com.mapbox.android.core.location.LocationEngineProvider;
 import com.mapbox.android.core.location.LocationEngineResult;
-import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
 import com.mapbox.api.directions.v5.DirectionsCriteria;
-import com.mapbox.api.directions.v5.DirectionsService;
-import com.mapbox.api.directions.v5.MapboxDirections;
-import com.mapbox.api.directions.v5.models.DirectionsResponse;
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.mapbox.api.geocoding.v5.GeocodingCriteria;
 import com.mapbox.api.geocoding.v5.MapboxGeocoding;
-import com.mapbox.api.geocoding.v5.models.CarmenContext;
 import com.mapbox.api.geocoding.v5.models.CarmenFeature;
 import com.mapbox.api.geocoding.v5.models.GeocodingResponse;
-import com.mapbox.core.MapboxService;
 import com.mapbox.core.exceptions.ServicesException;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
@@ -55,10 +48,10 @@ import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.location.LocationComponent;
 import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions;
 import com.mapbox.mapboxsdk.location.OnCameraTrackingChangedListener;
-import com.mapbox.mapboxsdk.location.OnLocationCameraTransitionListener;
 import com.mapbox.mapboxsdk.location.modes.CameraMode;
 import com.mapbox.mapboxsdk.location.modes.RenderMode;
 import com.mapbox.mapboxsdk.maps.MapView;
@@ -68,14 +61,18 @@ import com.mapbox.mapboxsdk.maps.Style;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceAutocompleteFragment;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceSelectionListener;
+import com.mapbox.mapboxsdk.style.expressions.Expression;
 import com.mapbox.mapboxsdk.style.layers.LineLayer;
 import com.mapbox.mapboxsdk.style.layers.Property;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
+import com.margdarshak.ActivityPermissionListener;
 import com.margdarshak.R;
-import com.margdarshak.routing.MargdarshakDirection;
-import com.margdarshak.routing.OSRMService;
+import com.margdarshak.RouteFragment;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -84,29 +81,32 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 import static com.mapbox.core.constants.Constants.PRECISION_6;
-import static com.mapbox.mapboxsdk.style.layers.Property.NONE;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.literal;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.switchCase;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconOffset;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineCap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineColor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineDasharray;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineJoin;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineWidth;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility;
 
 public class HomeFragment extends Fragment implements
         OnMapReadyCallback {
 
     private static final String TAG = HomeFragment.class.getSimpleName();
+    private static final String SEARCH_FRAGMENT_TAG = HomeFragment.class.getSimpleName().concat("_search");
+    private static final String ROUTE_FRAGMENT_TAG = HomeFragment.class.getSimpleName().concat("_route");
     private static final String ROUTE_LAYER_ID = "route-layer-id";
     private static final String ROUTE_SOURCE_ID = "route-source-id";
-    private static final String ICON_LAYER_ID = "icon-layer-id";
-    private static final String ICON_SOURCE_ID = "icon-source-id";
     private static final String PLACE_ICON_SOURCE_ID = "place-icon-source-id";
-    private static final String RED_PIN_ICON_ID = "red-pin-icon-id";
     private static final String PLACE_MARKER = "placeMarker";
     private static final String PLACE_ICON_LAYER_ID = "place-layer-id";
+    private static final String ICON_LAYER_ID = "icon-layer-id";
+    private static final String ICON_SOURCE_ID = "icon-source-id";
+    private static final String RED_PIN_ICON_ID = "red-pin-icon-id";
     public static final int CAMERA_ANIMATION_TIME = 2000;
     private static final int PLACE_SELECTOR_REQUEST_CODE = 899;
     private static final String PLACE_PICKER_LAYER_ID = "place-picker-layer-id";
@@ -119,7 +119,9 @@ public class HomeFragment extends Fragment implements
     private LocationEngine locationEngine;
     private LocationComponent locationComponent;
     private PlaceAutocompleteFragment autocompleteFragment;
-    private LatLng selectedPoint;
+    private RouteFragment routeFragment;
+    private CarmenFeature selectedPoint;
+    private HomeViewModel homeViewModel;
 
     @Override
     public void onAttach(Context context) {
@@ -135,10 +137,24 @@ public class HomeFragment extends Fragment implements
     @Override
     public void onMapReady(@NonNull MapboxMap mapboxMap) {
         this.mapboxMap = mapboxMap;
-        mapboxMap.setStyle(Style.MAPBOX_STREETS,
+        this.mapboxMap.setStyle(Style.MAPBOX_STREETS,
                 style -> {
                     permissionResultListener
-                            .requestLocationPermission(new LocationPermissionCallback(mapboxMap, style));
+                            .requestLocationPermission(new ActivityPermissionListener.LocationPermissionCallback(mapboxMap, style) {
+                                @Override
+                                public void onGrant() {
+                                    Log.d(TAG, "granted.. now enabling location component");
+                                    enableLocationComponent(style);
+                                }
+
+                                @Override
+                                public void onDenial() {
+                                    Log.d(TAG, "denied.. should show location button");
+                                    enableLocationComponent(style);
+                                    myLocationButton.setOnClickListener(v -> permissionResultListener.requestLocationPermission(this));
+                                    myLocationButton.setVisibility(View.VISIBLE);
+                                }
+                            });
                     style.addImage(PLACE_MARKER, getResources().getDrawable(R.drawable.location_on_accent_36dp, null));
                     style.addSource(new GeoJsonSource(PLACE_ICON_SOURCE_ID));
                     style.addLayer(new SymbolLayer(PLACE_ICON_LAYER_ID, PLACE_ICON_SOURCE_ID).withProperties(
@@ -149,11 +165,10 @@ public class HomeFragment extends Fragment implements
                     ));
                 });
         setUpSearch();
-        mapboxMap.addOnMapClickListener(point -> {
+        this.mapboxMap.addOnMapClickListener(point -> {
             PointF screenPoint = mapboxMap.getProjection().toScreenLocation(point);
             getPointFeatures(screenPoint);
             makeGeocodeSearch(point);
-            selectedPoint = point;
             return false;
         });
     }
@@ -161,10 +176,37 @@ public class HomeFragment extends Fragment implements
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
-        HomeViewModel homeViewModel = new ViewModelProvider(ViewModelStore::new).get(HomeViewModel.class);
+        homeViewModel = new ViewModelProvider(getActivity()).get(HomeViewModel.class);
         View root = inflater.inflate(R.layout.fragment_home, container, false);
-        final TextView textView = root.findViewById(R.id.text_home);
-        homeViewModel.getText().observe(getViewLifecycleOwner(), s -> textView.setText(s));
+        homeViewModel.getRoutes().observe(getViewLifecycleOwner(), routes -> {
+
+            if (mapboxMap != null) {
+                for (DirectionsRoute route: routes) {
+                    mapboxMap.getStyle( style -> {
+                        Log.d(TAG, "onResponse: source != null");
+                        LineString ls = LineString.fromPolyline(route.geometry(),
+                                PRECISION_6);
+                        initRouteSource(style, Integer.parseInt(route.routeIndex()), route.routeOptions().profile(), Feature.fromGeometry(ls));
+                        initRouteLayer(style, Integer.parseInt(route.routeIndex()), route.routeOptions().profile());
+
+                    });
+                }
+            }
+        });
+        homeViewModel.getSelectedRoute().observe(getViewLifecycleOwner(), selectedRoute -> {
+            hideRouteFragment();
+            setUpSearch();
+            if (mapboxMap != null) {
+                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
+                    if(route != selectedRoute) {
+                        mapboxMap.getStyle( style -> {
+                            style.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                        });
+                    }
+                }
+            }
+        });
+
         getDirectionButton = root.findViewById(R.id.get_directions);
         MapView mapView = root.findViewById(R.id.mapView);
         myLocationButton = root.findViewById(R.id.locationFAB);
@@ -224,6 +266,7 @@ public class HomeFragment extends Fragment implements
                         if (results.size() > 0) {
                             CarmenFeature feature = results.get(0);
                             displayPlaceInfo(feature);
+                            selectedPoint = feature;
                         } else {
                             Toast.makeText(getActivity(), "No result found",
                                     Toast.LENGTH_SHORT).show();
@@ -252,6 +295,11 @@ public class HomeFragment extends Fragment implements
         ((TextView)getView().findViewById(R.id.selected_location_info_address)).setText(address);
     }
 
+    private void hidePlaceInfo() {
+        CardView infoCard = getView().findViewById(R.id.info_frame);
+        infoCard.setVisibility(View.GONE);
+    }
+
     private void setUpSearchFragment(Bundle savedInstanceState){
         if (savedInstanceState == null) {
             PlaceOptions placeOptions = PlaceOptions.builder()
@@ -261,17 +309,86 @@ public class HomeFragment extends Fragment implements
                     .getResources().getString(R.string.mapbox_access_token), placeOptions);
 
             getChildFragmentManager().beginTransaction()
-                    .add(R.id.search_fragment_container, autocompleteFragment, TAG)
+                    .add(R.id.search_fragment_container, autocompleteFragment, SEARCH_FRAGMENT_TAG)
                     .hide(autocompleteFragment)
                     .commit();
         } else {
             autocompleteFragment = (PlaceAutocompleteFragment)
-                    getParentFragmentManager().findFragmentByTag(TAG);
+                    getParentFragmentManager().findFragmentByTag(SEARCH_FRAGMENT_TAG);
         }
     }
 
+    private void setUpRouteFragment(Bundle savedInstanceState){
+        if (savedInstanceState == null) {
+            if(mapboxMap!=null && selectedPoint != null){
+                Location currentLocation = mapboxMap.getLocationComponent().getLastKnownLocation();
+                routeFragment = RouteFragment.newInstance(1, selectedPoint.center().latitude(), selectedPoint.center().longitude(),
+                        currentLocation.getLatitude(), currentLocation.getLongitude());
+            } else {
+                routeFragment = RouteFragment.newInstance(1);
+            }
+            getChildFragmentManager().beginTransaction()
+                    .add(R.id.route_list_fragment_container, routeFragment, ROUTE_FRAGMENT_TAG)
+                    .hide(routeFragment)
+                    .commit();
+        } else {
+            routeFragment = (RouteFragment)
+                    getParentFragmentManager().findFragmentByTag(ROUTE_FRAGMENT_TAG);
+        }
+    }
+
+    private void showRouteFragment(){
+        getView().findViewById(R.id.route_lower).setVisibility(View.VISIBLE);
+        getView().findViewById(R.id.route_upper).setVisibility(View.VISIBLE);
+        ((TextInputEditText) getView().findViewById(R.id.destination_text)).setText(selectedPoint.placeName());
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.route_list_fragment_container, routeFragment, ROUTE_FRAGMENT_TAG)
+                .show(routeFragment)
+                .commit();
+
+        getView().findViewById(R.id.route_back).setOnClickListener(v -> {
+            hideRouteFragment();
+            setUpSearch();
+            if (mapboxMap != null) {
+                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
+                    mapboxMap.getStyle( style -> {
+                        style.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                        style.removeLayer(ICON_LAYER_ID);
+                        style.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                    });
+                }
+            }
+        });
+
+        mapboxMap.addOnMapClickListener(point -> {
+            return false;
+        });
+
+    }
+
+    private void hideRouteFragment(){
+        getView().findViewById(R.id.route_lower).setVisibility(View.GONE);
+        getView().findViewById(R.id.route_upper).setVisibility(View.GONE);
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.route_list_fragment_container, routeFragment, ROUTE_FRAGMENT_TAG)
+                .hide(routeFragment)
+                .commit();
+        moveCameraTo(selectedPoint.center().latitude(), selectedPoint.center().longitude());
+        mapboxMap.addOnMapClickListener(point -> {
+            PointF screenPoint = mapboxMap.getProjection().toScreenLocation(point);
+            getPointFeatures(screenPoint);
+            makeGeocodeSearch(point);
+            return false;
+        });
+    }
+
+    private void hideSearch(){
+        contractSearch(autocompleteFragment);
+        searchTextBox.setVisibility(View.GONE);
+    }
 
     private void setUpSearch() {
+        searchTextBox.setVisibility(View.VISIBLE);
         searchTextBox.setBackgroundColor(getResources().getColor(R.color.colorWhite, null));
         searchFragmentContainer.setClipToOutline(true);
         searchTextBox.setClipToOutline(true);
@@ -288,7 +405,7 @@ public class HomeFragment extends Fragment implements
                         source.setGeoJson(FeatureCollection.fromFeatures(
                                 new Feature[] {Feature.fromJson(carmenFeature.toJson())}));
                     }
-                    loadedMapStyle.removeLayer(ROUTE_LAYER_ID);
+                    //loadedMapStyle.removeLayer(ROUTE_LAYER_ID);
                     // Move map camera to the selected location
                     moveCameraTo(((Point) carmenFeature.geometry()).latitude(),
                             ((Point) carmenFeature.geometry()).longitude());
@@ -296,8 +413,7 @@ public class HomeFragment extends Fragment implements
 
                 });
                 displayPlaceInfo(carmenFeature);
-                selectedPoint = new LatLng(((Point) carmenFeature.geometry()).latitude(),
-                        ((Point) carmenFeature.geometry()).longitude());
+                selectedPoint = carmenFeature;
                 locationComponent.setCameraMode(CameraMode.NONE);
                 myLocationButton.setVisibility(View.VISIBLE);
                 finish();
@@ -310,7 +426,7 @@ public class HomeFragment extends Fragment implements
 
             private void finish(){
                 imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
-                contractSearch(autocompleteFragment, imm);
+                contractSearch(autocompleteFragment);
             }
         });
 
@@ -351,7 +467,7 @@ public class HomeFragment extends Fragment implements
         imm.showSoftInput(getView(), InputMethodManager.SHOW_IMPLICIT);
     }
 
-    private void contractSearch(PlaceAutocompleteFragment autocompleteFragment, InputMethodManager imm) {
+    private void contractSearch(PlaceAutocompleteFragment autocompleteFragment) {
         getChildFragmentManager().beginTransaction()
                 .hide(autocompleteFragment)
                 .commit();
@@ -367,6 +483,14 @@ public class HomeFragment extends Fragment implements
        mapboxMap.animateCamera(CameraUpdateFactory.newCameraPosition(position), CAMERA_ANIMATION_TIME);
        return position;
 
+    }
+
+    private void moveCameraTo(LatLng origin, LatLng destination) {
+        LatLngBounds bounds = new LatLngBounds.Builder()
+                .include(origin)
+                .include(destination)
+                .build();
+        mapboxMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 500), CAMERA_ANIMATION_TIME);
     }
 
     @SuppressWarnings("MissingPermission")
@@ -421,23 +545,84 @@ public class HomeFragment extends Fragment implements
                 locationComponent.setCameraMode(CameraMode.TRACKING, CAMERA_ANIMATION_TIME, (double)14, null, null, null);
             });
 
+
             // TODO: remove this
             getDirectionButton.setOnClickListener(view -> {
                 if(selectedPoint != null) {
                     mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
                         Location currentLocation = mapboxMap.getLocationComponent().getLastKnownLocation();
-                        Point origin = Point.fromLngLat(selectedPoint.getLongitude(), selectedPoint.getLatitude());
+                        Point origin = Point.fromLngLat(selectedPoint.center().longitude(), selectedPoint.center().latitude());
                         Point destination = Point.fromLngLat(currentLocation.getLongitude(), currentLocation.getLatitude());
 
-                        initSource(style, origin, destination);
+                        // Add icons
+                        style.addImage(RED_PIN_ICON_ID, BitmapFactory.decodeResource(getResources(),
+                                R.drawable.mapbox_marker_icon_default));
 
-                        initLayers(style);
+                        // Add icon-layers to the map
+                        style.addLayer(new SymbolLayer(ICON_LAYER_ID, ICON_SOURCE_ID).withProperties(
+                                iconImage(RED_PIN_ICON_ID),
+                                iconIgnorePlacement(true),
+                                iconAllowOverlap(true),
+                                iconOffset(new Float[] {0f, -9f})));
 
-                        getRoute(mapboxMap, origin, destination);
+                        GeoJsonSource iconGeoJsonSource = new GeoJsonSource(ICON_SOURCE_ID, FeatureCollection.fromFeatures(new Feature[] {
+                                Feature.fromGeometry(Point.fromLngLat(origin.longitude(), origin.latitude())),
+                                Feature.fromGeometry(Point.fromLngLat(destination.longitude(), destination.latitude()))}));
+                        style.addSource(iconGeoJsonSource);
 
+                        setUpRouteFragment(null);
+                        showRouteFragment();
+                        hidePlaceInfo();
+                        hideSearch();
+
+                        getView().findViewById(R.id.route_walk).setOnClickListener(v -> {
+                            if (mapboxMap != null) {
+                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle( s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                    });
+                                }
+                            }
+                            routeFragment.getRoute(origin, destination, DirectionsCriteria.PROFILE_WALKING);
+                        });
+                        getView().findViewById(R.id.route_bike).setOnClickListener(v -> {
+                            if (mapboxMap != null) {
+                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle( s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                    });
+                                }
+                            }
+                            routeFragment.getRoute(origin, destination, DirectionsCriteria.PROFILE_CYCLING);
+                        });
+                        getView().findViewById(R.id.route_bus).setOnClickListener(v -> {
+                            if (mapboxMap != null) {
+                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle( s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                    });
+                                }
+                            }
+                            routeFragment.getRouteCustom(origin, destination, DirectionsCriteria.PROFILE_DRIVING);
+                        });
+                        getView().findViewById(R.id.route_drive).setOnClickListener(v -> {
+                            if (mapboxMap != null) {
+                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle( s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                    });
+                                }
+                            }
+                            routeFragment.getRoute(origin, destination, DirectionsCriteria.PROFILE_DRIVING_TRAFFIC);
+                        });
+
+                        moveCameraTo(new LatLng(selectedPoint.center().latitude(), selectedPoint.center().longitude()),
+                                new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()));
                     });
-                    Snackbar.make(view, "Http call complete", Snackbar.LENGTH_LONG)
-                            .setAction("Action", null).show();
                 }
             });
         } else {
@@ -454,191 +639,41 @@ public class HomeFragment extends Fragment implements
         }
     }
 
-    private void initSource(@NonNull Style loadedMapStyle, Point origin, Point destination) {
-        loadedMapStyle.addSource(new GeoJsonSource(ROUTE_SOURCE_ID,
-                FeatureCollection.fromFeatures(new Feature[] {})));
 
-        GeoJsonSource iconGeoJsonSource = new GeoJsonSource(ICON_SOURCE_ID, FeatureCollection.fromFeatures(new Feature[] {
-                Feature.fromGeometry(Point.fromLngLat(origin.longitude(), origin.latitude())),
-                Feature.fromGeometry(Point.fromLngLat(destination.longitude(), destination.latitude()))}));
-        loadedMapStyle.addSource(iconGeoJsonSource);
+    private void initRouteSource(@NonNull Style loadedMapStyle, int routeNumber,String profile, Feature feature) {
+        feature.addStringProperty("profile", profile);
+        loadedMapStyle.addSource(new GeoJsonSource(ROUTE_SOURCE_ID.concat("_"+profile).concat("_"+routeNumber),
+                FeatureCollection.fromFeature(feature)));
     }
 
-    private void initDroppedMarker(@NonNull Style loadedMapStyle) {
-        // Add the marker image to map
-        //loadedMapStyle.addImage("dropped-icon-image", BitmapFactory.decodeResource(
-        //        getResources(), R.drawable.location_on_accent_36dp));
-        //loadedMapStyle.addSource(new GeoJsonSource(PLACE_ICON_SOURCE_ID));
-        loadedMapStyle.addLayer(new SymbolLayer(PLACE_PICKER_LAYER_ID,
-                PLACE_ICON_SOURCE_ID).withProperties(
-                iconImage("dropped-icon-image"),
-                visibility(NONE),
-                iconAllowOverlap(true),
-                iconIgnorePlacement(true)
-        ));
-    }
-    private void initLayers(@NonNull Style loadedMapStyle) {
-        LineLayer routeLayer = new LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID);
 
+    private void initRouteLayer(@NonNull Style loadedMapStyle, int routeNumber, String profile) {
+        String color = routeNumber==0?"#009688":"#"+Integer.toHexString(0xBBBBBBBB-0x11111111*routeNumber);
+        Log.d(TAG, color);
+        LineLayer routeLayer = new LineLayer(ROUTE_LAYER_ID.concat("_"+profile).concat("_"+routeNumber), ROUTE_SOURCE_ID.concat("_"+profile).concat("_"+routeNumber));
+        Float[] f = new Float[2];
+        if(profile == DirectionsCriteria.PROFILE_WALKING){
+            f[0] = 2.0f;
+            f[1] = 2.0f;
+        } else {
+            f[0] = 20.0f;
+            f[1] = 0.0f;
+        }
         // Add the LineLayer to the map. This layer will display the directions route.
         routeLayer.setProperties(
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
                 lineWidth(5f),
-                lineColor(Color.parseColor("#009688"))
+                lineColor(Color.parseColor(color)),
+                lineDasharray(
+                        f
+                )
         );
-        loadedMapStyle.addLayer(routeLayer);
-
-        // Add icons
-        loadedMapStyle.addImage(RED_PIN_ICON_ID, BitmapFactory.decodeResource(getResources(),
-                R.drawable.mapbox_marker_icon_default));
-
-        // Add icon-layers to the map
-        loadedMapStyle.addLayer(new SymbolLayer(ICON_LAYER_ID, ICON_SOURCE_ID).withProperties(
-                iconImage(RED_PIN_ICON_ID),
-                iconIgnorePlacement(true),
-                iconAllowOverlap(true),
-                iconOffset(new Float[] {0f, -9f})));
-    }
-
-    private void getRoute(MapboxMap mapboxMap, Point origin, Point destination) {
-        MapboxService<DirectionsResponse, DirectionsService> client = MapboxDirections.builder()
-                .origin(origin)
-                .destination(destination)
-                .overview(DirectionsCriteria.OVERVIEW_FULL)
-                .profile(DirectionsCriteria.PROFILE_DRIVING)
-                .accessToken(getString(R.string.mapbox_access_token))
-                .build();
-        client.enqueueCall(new Callback<DirectionsResponse>() {
-            @Override
-            public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
-                Log.d(TAG, "call success with response: " + response);
-
-                // You can get the generic HTTP info about the response
-                Log.d(TAG, "Response code: " + response.code());
-                if (response.body() == null) {
-                    Log.d(TAG, "No routes found, make sure you set the right user and access token.");
-                    return;
-                } else if (response.body().routes().size() < 1) {
-                    Log.d(TAG, "No routes found");
-                    return;
-                }
-                Log.d(TAG, "Response from mapbox: " + response.body().toString());
-                // Get the directions route
-                DirectionsRoute currentRoute = response.body().routes().get(0);
-
-                // Make a toast which displays the route's distance
-                Toast.makeText(getContext(), String.format(
-                        getString(R.string.directions_activity_toast_message),
-                        currentRoute.distance()), Toast.LENGTH_SHORT).show();
-
-                if (mapboxMap != null) {
-                    mapboxMap.getStyle( style -> {
-                        // Retrieve and update the source designated for showing the directions route
-                        GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
-
-                        // Create a LineString with the directions route's geometry and
-                        // reset the GeoJSON source for the route LineLayer source
-                        if (source != null) {
-                            Log.d(TAG, "onResponse: source != null");
-                            source.setGeoJson(FeatureCollection.fromFeature(
-                                    Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
-                                            PRECISION_6))));
-                        }
-                    });
-                }
-            }
-            @Override
-            public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
-                Log.e(TAG, "Error: " + throwable.getMessage());
-                Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
-
-    }
-
-    private void getRouteCustom(MapboxMap mapboxMap, Point origin, Point destination) {
-        MapboxService<DirectionsResponse, OSRMService> client = MargdarshakDirection.builder()
-                .origin(origin)
-                .destination(destination)
-                .overview(DirectionsCriteria.OVERVIEW_FULL)
-                .profile(DirectionsCriteria.PROFILE_DRIVING)
-                .baseUrl("http://34.93.158.237:5000/")
-                .accessToken(getString(R.string.mapbox_access_token))
-                .build();
-        client.enqueueCall(new Callback<DirectionsResponse>() {
-            @Override
-            public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
-                Log.d(TAG, "call success with response: " + response);
-
-                // You can get the generic HTTP info about the response
-                Log.d(TAG, "Response code: " + response.code());
-                if (response.body() == null) {
-                    Log.d(TAG, "No routes found, make sure you set the right user and access token.");
-                    return;
-                } else if (response.body().routes().size() < 1) {
-                    Log.d(TAG, "No routes found");
-                    return;
-                }
-                Log.d(TAG, "Response from mapbox: " + response.body().toString());
-                // Get the directions route
-                DirectionsRoute currentRoute = response.body().routes().get(0);
-
-                // Make a toast which displays the route's distance
-                Toast.makeText(getContext(), String.format(
-                        getString(R.string.directions_activity_toast_message),
-                        currentRoute.distance()), Toast.LENGTH_SHORT).show();
-
-                if (mapboxMap != null) {
-                    mapboxMap.getStyle( style -> {
-                        // Retrieve and update the source designated for showing the directions route
-                        GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
-
-                        // Create a LineString with the directions route's geometry and
-                        // reset the GeoJSON source for the route LineLayer source
-                        if (source != null) {
-                            Log.d(TAG, "onResponse: source != null");
-                            source.setGeoJson(FeatureCollection.fromFeature(
-                                    Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
-                                            PRECISION_6))));
-                        }
-                    });
-                }
-            }
-            @Override
-            public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
-                Log.e(TAG, "Error: " + throwable.getMessage());
-                Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
-
-    }
-
-    // Define the events that the fragment will use to communicate
-    public interface ActivityPermissionListener extends PermissionsListener{
-        void requestLocationPermission(LocationPermissionCallback locationPermissionCallback);
-    }
-
-    public class LocationPermissionCallback {
-        MapboxMap mapboxMap;
-        Style style;
-
-        public LocationPermissionCallback(MapboxMap mapboxMap, Style style) {
-            this.mapboxMap = mapboxMap;
-            this.style = style;
-        }
-
-        public void onGrant() {
-            Log.d(TAG, "granted.. now enabling location component");
-            enableLocationComponent(style);
-        }
-        public void onDenial() {
-            Log.d(TAG, "denied.. should show location button");
-            enableLocationComponent(style);
-            myLocationButton.setOnClickListener(v -> permissionResultListener.requestLocationPermission(this));
-            myLocationButton.setVisibility(View.VISIBLE);
+        if(routeNumber==0) {
+            loadedMapStyle.addLayer(routeLayer);
+        } else {
+            loadedMapStyle.addLayerBelow(routeLayer, ROUTE_LAYER_ID.concat("_"+profile).concat("_0"));
         }
     }
+
 }

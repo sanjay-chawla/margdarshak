@@ -92,7 +92,7 @@ public abstract class MargdarshakDirection extends
                 //user(),
                 profile(),
                 formatCoordinates(coordinates()),
-                accessToken(),
+                //accessToken(),
                 alternatives(),
                 geometries(),
                 overview(),
