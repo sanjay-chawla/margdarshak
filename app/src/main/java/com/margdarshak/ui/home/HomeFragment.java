@@ -623,8 +623,6 @@ public class HomeFragment extends Fragment implements
                         moveCameraTo(new LatLng(selectedPoint.center().latitude(), selectedPoint.center().longitude()),
                                 new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()));
                     });
-                    Snackbar.make(view, "Http call complete", Snackbar.LENGTH_LONG)
-                            .setAction("Action", null).show();
                 }
             });
         } else {

@@ -45,7 +45,7 @@ public class MyRouteRecyclerViewAdapter extends RecyclerView.Adapter<MyRouteRecy
         long hour = TimeUnit.SECONDS.toHours(holder.mItem.duration().longValue());
         if(hour!=0) {duration.append(String.format("%d hr, ", hour));}
         long min = TimeUnit.SECONDS.toMinutes(holder.mItem.duration().longValue() - TimeUnit.HOURS.toSeconds(hour));
-        if(min!=0) {duration.append(String.format("%d min, ", min));}
+        if(min!=0) {duration.append(String.format("%d min", min));}
         //long sec = TimeUnit.SECONDS.toSeconds(holder.mItem.duration().longValue()- TimeUnit.MINUTES.toSeconds(min));
         //if(sec!=0) {duration.append(String.format("%d sec", sec));}
         holder.mDuration.setText(duration.toString());
