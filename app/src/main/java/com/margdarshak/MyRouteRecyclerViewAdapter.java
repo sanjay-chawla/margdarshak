@@ -1,23 +1,22 @@
 package com.margdarshak;
 
-import androidx.recyclerview.widget.RecyclerView;
-
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.margdarshak.RouteFragment.OnListFragmentInteractionListener;
-import com.margdarshak.dummy.DummyContent.DummyItem;
 
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * {@link RecyclerView.Adapter} that can display a {@link DummyItem} and makes a call to the
+ * {@link RecyclerView.Adapter} that can display a {@link DirectionsRoute} and makes a call to the
  * specified {@link OnListFragmentInteractionListener}.
  * TODO: Replace the implementation with code for your data type.
  */
@@ -47,8 +46,8 @@ public class MyRouteRecyclerViewAdapter extends RecyclerView.Adapter<MyRouteRecy
         if(hour!=0) {duration.append(String.format("%d hr, ", hour));}
         long min = TimeUnit.SECONDS.toMinutes(holder.mItem.duration().longValue() - TimeUnit.HOURS.toSeconds(hour));
         if(min!=0) {duration.append(String.format("%d min, ", min));}
-        long sec = holder.mItem.duration().longValue()- TimeUnit.MINUTES.toSeconds(min);
-        if(sec!=0) {duration.append(String.format("%d sec", sec));}
+        //long sec = TimeUnit.SECONDS.toSeconds(holder.mItem.duration().longValue()- TimeUnit.MINUTES.toSeconds(min));
+        //if(sec!=0) {duration.append(String.format("%d sec", sec));}
         holder.mDuration.setText(duration.toString());
 
         holder.mDistance.setText(String.valueOf(new DecimalFormat("#.##").format(holder.mItem.distance()/1000)).concat(" km"));

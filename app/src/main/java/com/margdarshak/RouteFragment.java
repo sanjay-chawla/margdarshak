@@ -2,19 +2,17 @@ package com.margdarshak;
 
 import android.content.Context;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.ViewModelStore;
-import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+
+import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.mapbox.api.directions.v5.DirectionsCriteria;
 import com.mapbox.api.directions.v5.DirectionsService;
@@ -24,13 +22,9 @@ import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.mapbox.core.MapboxService;
 import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
-import com.margdarshak.dummy.DummyContent;
-import com.margdarshak.dummy.DummyContent.DummyItem;
 import com.margdarshak.routing.MargdarshakDirection;
 import com.margdarshak.routing.OSRMService;
-import com.margdarshak.ui.home.HomeFragment;
 import com.margdarshak.ui.home.HomeViewModel;
-import com.margdarshak.ui.slideshow.SlideshowViewModel;
 
 import java.util.List;
 
@@ -122,7 +116,7 @@ public class RouteFragment extends Fragment {
             } else {
                 recyclerView.setLayoutManager(new GridLayoutManager(context, mColumnCount));
             }
-            getRoute(Point.fromLngLat(originLongitude, originLatitude), Point.fromLngLat(destinationLongitude, destinationLatitude), recyclerView);
+            getRoute(Point.fromLngLat(originLongitude, originLatitude), Point.fromLngLat(destinationLongitude, destinationLatitude), DirectionsCriteria.PROFILE_DRIVING_TRAFFIC);
             adapter = new MyRouteRecyclerViewAdapter(routes, mListener);
             recyclerView.setAdapter(adapter);
         }
@@ -162,12 +156,12 @@ public class RouteFragment extends Fragment {
         void onListFragmentInteraction(DirectionsRoute item);
     }
 
-    private void getRoute(Point origin, Point destination, RecyclerView recyclerView) {
+    public void getRoute(Point origin, Point destination, String profile) {
         MapboxService<DirectionsResponse, DirectionsService> client = MapboxDirections.builder()
                 .origin(origin)
                 .destination(destination)
                 .overview(DirectionsCriteria.OVERVIEW_FULL)
-                .profile(DirectionsCriteria.PROFILE_DRIVING_TRAFFIC)
+                .profile(profile)
                 .alternatives(Boolean.TRUE)
                 .accessToken(getString(R.string.mapbox_access_token))
                 .build();
@@ -189,7 +183,8 @@ public class RouteFragment extends Fragment {
                 // Get the directions route
                 routes = response.body().routes();
                 adapter = new MyRouteRecyclerViewAdapter(routes, mListener);
-                recyclerView.setAdapter(adapter);
+                ((RecyclerView)getView()).setAdapter(adapter);
+                //recyclerView.setAdapter(adapter);
                 Log.d(TAG, "routes lenght: " + adapter.getItemCount());
                 homeViewModel.setRoutes(routes);
                 //adapter.notifyDataSetChanged();
@@ -231,12 +226,12 @@ public class RouteFragment extends Fragment {
     }
 
 
-    private void getRouteCustom(MapboxMap mapboxMap, Point origin, Point destination) {
+    public void getRouteCustom(Point origin, Point destination, String profile) {
         MapboxService<DirectionsResponse, OSRMService> client = MargdarshakDirection.builder()
                 .origin(origin)
                 .destination(destination)
                 .overview(DirectionsCriteria.OVERVIEW_FULL)
-                .profile(DirectionsCriteria.PROFILE_DRIVING)
+                .profile(profile)
                 .baseUrl("http://34.93.158.237:5000/")
                 .accessToken(getString(R.string.mapbox_access_token))
                 .build();
@@ -256,7 +251,13 @@ public class RouteFragment extends Fragment {
                 }
                 Log.d(TAG, "Response from mapbox: " + response.body().toString());
                 // Get the directions route
-                List<DirectionsRoute> routes = response.body().routes();
+                routes = response.body().routes();
+                adapter = new MyRouteRecyclerViewAdapter(routes, mListener);
+                ((RecyclerView)getView()).setAdapter(adapter);
+                //recyclerView.setAdapter(adapter);
+                Log.d(TAG, "routes lenght: " + adapter.getItemCount());
+                homeViewModel.setRoutes(routes);
+                //adapter.notifyDataSetChanged();
 
                 /*
                 DirectionsRoute currentRoute = response.body().routes().get(0);
