@@ -1,6 +1,7 @@
 #!/bin/sh
-pwd
+
+PWD=$(pwd)
 # --batch to prevent interactive command --yes to assume "yes" for questions
 gpg --quiet --batch --yes --decrypt --passphrase="$DECRYPT_PP" \
---output $HOME/app/google-services.json $HOME/app/google-services.json.gpg
+--output $PWD/app/google-services.json $PWD/app/google-services.json.gpg
 
