@@ -1,10 +1,12 @@
 package com.margdarshak.ui.home;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PointF;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -15,6 +17,8 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,24 +26,29 @@ import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.chip.Chip;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mapbox.android.core.location.LocationEngine;
 import com.mapbox.android.core.location.LocationEngineCallback;
 import com.mapbox.android.core.location.LocationEngineProvider;
 import com.mapbox.android.core.location.LocationEngineResult;
 import com.mapbox.android.core.permissions.PermissionsManager;
 import com.mapbox.api.directions.v5.DirectionsCriteria;
+import com.mapbox.api.directions.v5.DirectionsService;
+import com.mapbox.api.directions.v5.MapboxDirections;
+import com.mapbox.api.directions.v5.models.DirectionsResponse;
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
 import com.mapbox.api.geocoding.v5.GeocodingCriteria;
 import com.mapbox.api.geocoding.v5.MapboxGeocoding;
 import com.mapbox.api.geocoding.v5.models.CarmenFeature;
 import com.mapbox.api.geocoding.v5.models.GeocodingResponse;
+import com.mapbox.core.MapboxService;
 import com.mapbox.core.exceptions.ServicesException;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
@@ -69,13 +78,22 @@ import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
 import com.margdarshak.ActivityPermissionListener;
 import com.margdarshak.R;
 import com.margdarshak.RouteFragment;
+import com.margdarshak.routing.MargdarshakDirection;
+import com.margdarshak.routing.OSRMService;
+import com.margdarshak.ui.data.model.BikesData;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -87,6 +105,7 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconOffset;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconSize;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineCap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineColor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineDasharray;
@@ -107,6 +126,21 @@ public class HomeFragment extends Fragment implements
     private static final String ICON_LAYER_ID = "icon-layer-id";
     private static final String ICON_SOURCE_ID = "icon-source-id";
     private static final String RED_PIN_ICON_ID = "red-pin-icon-id";
+    private static final String PROPERTY_SELECTED = "selected";
+    private static final String BUS_PROPERTY_SELECTED = "selected";
+    private static final String GEOJSON_SOURCE_ID = "GEOJSON_SOURCE_ID";
+    private static final String BUS_GEOJSON_SOURCE_ID = "BUS_GEOJSON_SOURCE_ID";
+    private static final String MARKER_IMAGE_ID = "COLOR_IMAGE_ID";
+    private static final String BUS_MARKER_IMAGE_ID = "BUS_COLOR_IMAGE_ID";
+    private static final String GREY_IMAGE_ID = "GREY_IMAGE_ID";
+    private static final String MARKER_LAYER_ID = "COLOR_LAYER_ID";
+    private static final String BUS_MARKER_LAYER_ID = "BUS_COLOR_LAYER_ID";
+    private static final String CALLOUT_LAYER_ID = "CALLOUT_LAYER_ID";
+    private static final String BUS_CALLOUT_LAYER_ID = "BUS_CALLOUT_LAYER_ID";
+    private static final String PROPERTY_NAME = "name";
+    private static final String BUS_PROPERTY_NAME = "fullname";
+    private static final String AVAILABLE_BIKE_STANDS = "Available bike stands";
+    private static final String AVAILABLE_BIKES = "Available bikes";
     public static final int CAMERA_ANIMATION_TIME = 2000;
     private static final int PLACE_SELECTOR_REQUEST_CODE = 899;
     private static final String PLACE_PICKER_LAYER_ID = "place-picker-layer-id";
@@ -163,11 +197,10 @@ public class HomeFragment extends Fragment implements
                             iconAllowOverlap(true),
                             iconOffset(new Float[] {0f, -8f})
                     ));
+                    new LoadGeoJsonDataTask(getActivity(), mapboxMap).execute();
                 });
         setUpSearch();
-        this.mapboxMap.addOnMapClickListener(point -> {
-            PointF screenPoint = mapboxMap.getProjection().toScreenLocation(point);
-            getPointFeatures(screenPoint);
+        mapboxMap.addOnMapClickListener(point -> {
             makeGeocodeSearch(point);
             return false;
         });
@@ -218,25 +251,31 @@ public class HomeFragment extends Fragment implements
         return root;
     }
 
-    private boolean getPointFeatures(PointF screenPoint) {
-        List<Feature> features = mapboxMap.queryRenderedFeatures(screenPoint);
+    private Feature getPointFeatures(LatLng point) {
+        PointF screenPoint = mapboxMap.getProjection().toScreenLocation(point);
+        List<Feature> features = mapboxMap.queryRenderedFeatures(screenPoint, MARKER_LAYER_ID);
+        Feature feature = null;
         if (!features.isEmpty()) {
-            Feature feature = features.get(0);
+            feature = features.get(0);
 
             StringBuilder stringBuilder = new StringBuilder();
 
             if (feature.properties() != null) {
                 for (Map.Entry<String, JsonElement> entry : feature.properties().entrySet()) {
-                    stringBuilder.append(String.format("%s - %s", entry.getKey(), entry.getValue()));
-                    stringBuilder.append(System.getProperty("line.separator"));
+                    if(AVAILABLE_BIKE_STANDS.equals(entry.getKey()) || AVAILABLE_BIKES.equals(entry.getKey())) {
+                        Log.d(TAG, entry.getKey());
+                        stringBuilder.append(String.format("%s - %s", entry.getKey(), (int) Float.parseFloat(String.valueOf(entry.getValue()))));
+                        stringBuilder.append(System.getProperty("line.separator"));
+                    }
                 }
             }
+            feature.addStringProperty("text", stringBuilder.toString());
             // TODO: use features if needed
-            // Toast.makeText(getActivity(), stringBuilder.toString(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), stringBuilder.toString(), Toast.LENGTH_SHORT).show();
         } else {
             // Toast.makeText(getActivity(), "No properties found", Toast.LENGTH_SHORT).show();
         }
-        return true;
+        return feature;
     }
     private void makeGeocodeSearch(final LatLng latLng) {
         try {
@@ -247,6 +286,7 @@ public class HomeFragment extends Fragment implements
                             latLng.getLatitude()));
                 }
             });
+            Feature customFeature = getPointFeatures(latLng);
             // Build a Mapbox geocoding request
             MapboxGeocoding client = MapboxGeocoding.builder()
                     .accessToken(getString(R.string.mapbox_access_token))
@@ -265,7 +305,7 @@ public class HomeFragment extends Fragment implements
                         List<CarmenFeature> results = response.body().features();
                         if (results.size() > 0) {
                             CarmenFeature feature = results.get(0);
-                            displayPlaceInfo(feature);
+                            displayPlaceInfo(feature, customFeature);
                             selectedPoint = feature;
                         } else {
                             Toast.makeText(getActivity(), "No result found",
@@ -284,15 +324,24 @@ public class HomeFragment extends Fragment implements
         }
     }
 
-    private void displayPlaceInfo(CarmenFeature carmenFeature) {
+    private void displayPlaceInfo(CarmenFeature carmenFeature, Feature customFeature) {
         CardView infoCard = getView().findViewById(R.id.info_frame);
+        getView().findViewById(R.id.customPanel).setVisibility(View.GONE);
         infoCard.setVisibility(View.VISIBLE);
         getView().findViewById(R.id.close_info).setOnClickListener(v -> {
             infoCard.setVisibility(View.GONE);
         });
-        ((TextView)getView().findViewById(R.id.selected_location_info_text)).setText(carmenFeature.text());
-        String address = carmenFeature.placeName().replaceFirst(carmenFeature.text().concat(", "),"");
-        ((TextView)getView().findViewById(R.id.selected_location_info_address)).setText(address);
+        if(customFeature != null){
+            ((TextView) getView().findViewById(R.id.selected_location_info_text)).setText("DublinBikes: " + customFeature.getStringProperty("name"));
+            ((TextView) getView().findViewById(R.id.selected_location_info_address)).setText(customFeature.getStringProperty("address"));
+            getView().findViewById(R.id.customPanel).setVisibility(View.VISIBLE);
+            ((ImageView)getView().findViewById(R.id.customFeatureIcon)).setImageResource(R.drawable.bikes_logo_50);
+            ((TextView)getView().findViewById(R.id.customFeatureText)).setText(customFeature.getStringProperty("text"));
+        } else {
+            ((TextView) getView().findViewById(R.id.selected_location_info_text)).setText(carmenFeature.text());
+            String address = carmenFeature.placeName().replaceFirst(carmenFeature.text().concat(", "), "");
+            ((TextView) getView().findViewById(R.id.selected_location_info_address)).setText(address);
+        }
     }
 
     private void hidePlaceInfo() {
@@ -375,8 +424,6 @@ public class HomeFragment extends Fragment implements
                 .commit();
         moveCameraTo(selectedPoint.center().latitude(), selectedPoint.center().longitude());
         mapboxMap.addOnMapClickListener(point -> {
-            PointF screenPoint = mapboxMap.getProjection().toScreenLocation(point);
-            getPointFeatures(screenPoint);
             makeGeocodeSearch(point);
             return false;
         });
@@ -412,7 +459,7 @@ public class HomeFragment extends Fragment implements
 
 
                 });
-                displayPlaceInfo(carmenFeature);
+                displayPlaceInfo(carmenFeature, null);
                 selectedPoint = carmenFeature;
                 locationComponent.setCameraMode(CameraMode.NONE);
                 myLocationButton.setVisibility(View.VISIBLE);
@@ -648,11 +695,11 @@ public class HomeFragment extends Fragment implements
 
 
     private void initRouteLayer(@NonNull Style loadedMapStyle, int routeNumber, String profile) {
-        String color = routeNumber==0?"#009688":"#"+Integer.toHexString(0xBBBBBBBB-0x11111111*routeNumber);
+        String color = routeNumber == 0 ? "#009688" : "#" + Integer.toHexString(0xBBBBBBBB - 0x11111111 * routeNumber);
         Log.d(TAG, color);
-        LineLayer routeLayer = new LineLayer(ROUTE_LAYER_ID.concat("_"+profile).concat("_"+routeNumber), ROUTE_SOURCE_ID.concat("_"+profile).concat("_"+routeNumber));
+        LineLayer routeLayer = new LineLayer(ROUTE_LAYER_ID.concat("_" + profile).concat("_" + routeNumber), ROUTE_SOURCE_ID.concat("_" + profile).concat("_" + routeNumber));
         Float[] f = new Float[2];
-        if(profile == DirectionsCriteria.PROFILE_WALKING){
+        if (profile == DirectionsCriteria.PROFILE_WALKING) {
             f[0] = 2.0f;
             f[1] = 2.0f;
         } else {
@@ -669,11 +716,250 @@ public class HomeFragment extends Fragment implements
                         f
                 )
         );
-        if(routeNumber==0) {
+        if (routeNumber == 0) {
             loadedMapStyle.addLayer(routeLayer);
         } else {
-            loadedMapStyle.addLayerBelow(routeLayer, ROUTE_LAYER_ID.concat("_"+profile).concat("_0"));
+            loadedMapStyle.addLayerBelow(routeLayer, ROUTE_LAYER_ID.concat("_" + profile).concat("_0"));
+
+            // Add icons
+            loadedMapStyle.addImage(RED_PIN_ICON_ID, BitmapFactory.decodeResource(getResources(),
+                    R.drawable.mapbox_marker_icon_default));
+
+            // Add icon-layers to the map
+            loadedMapStyle.addLayer(new SymbolLayer(ICON_LAYER_ID, ICON_SOURCE_ID).withProperties(
+                    iconImage(RED_PIN_ICON_ID),
+                    iconIgnorePlacement(true),
+                    iconAllowOverlap(true),
+                    iconOffset(new Float[]{0f, -9f})));
         }
     }
+        private void getRoute (MapboxMap mapboxMap, Point origin, Point destination){
+            MapboxService<DirectionsResponse, DirectionsService> client = MapboxDirections.builder()
+                    .origin(origin)
+                    .destination(destination)
+                    .overview(DirectionsCriteria.OVERVIEW_FULL)
+                    .profile(DirectionsCriteria.PROFILE_DRIVING)
+                    .accessToken(getString(R.string.mapbox_access_token))
+                    .build();
+            client.enqueueCall(new Callback<DirectionsResponse>() {
+                @Override
+                public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
+                    Log.d(TAG, "call success with response: " + response);
+
+                    // You can get the generic HTTP info about the response
+                    Log.d(TAG, "Response code: " + response.code());
+                    if (response.body() == null) {
+                        Log.d(TAG, "No routes found, make sure you set the right user and access token.");
+                        return;
+                    } else if (response.body().routes().size() < 1) {
+                        Log.d(TAG, "No routes found");
+                        return;
+                    }
+                    Log.d(TAG, "Response from mapbox: " + response.body().toString());
+                    // Get the directions route
+                    DirectionsRoute currentRoute = response.body().routes().get(0);
+
+                    // Make a toast which displays the route's distance
+                    Toast.makeText(getContext(), String.format(
+                            getString(R.string.directions_activity_toast_message),
+                            currentRoute.distance()), Toast.LENGTH_SHORT).show();
+
+                    if (mapboxMap != null) {
+                        mapboxMap.getStyle(style -> {
+                            // Retrieve and update the source designated for showing the directions route
+                            GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
+
+                            // Create a LineString with the directions route's geometry and
+                            // reset the GeoJSON source for the route LineLayer source
+                            if (source != null) {
+                                Log.d(TAG, "onResponse: source != null");
+                                source.setGeoJson(FeatureCollection.fromFeature(
+                                        Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
+                                                PRECISION_6))));
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
+                    Log.e(TAG, "Error: " + throwable.getMessage());
+                    Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+
+        }
+
+        private void getRouteCustom (MapboxMap mapboxMap, Point origin, Point destination){
+            MapboxService<DirectionsResponse, OSRMService> client = MargdarshakDirection.builder()
+                    .origin(origin)
+                    .destination(destination)
+                    .overview(DirectionsCriteria.OVERVIEW_FULL)
+                    .profile(DirectionsCriteria.PROFILE_DRIVING)
+                    .baseUrl("http://34.93.158.237:5000/")
+                    .accessToken(getString(R.string.mapbox_access_token))
+                    .build();
+            client.enqueueCall(new Callback<DirectionsResponse>() {
+                @Override
+                public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
+                    Log.d(TAG, "call success with response: " + response);
+
+                    // You can get the generic HTTP info about the response
+                    Log.d(TAG, "Response code: " + response.code());
+                    if (response.body() == null) {
+                        Log.d(TAG, "No routes found, make sure you set the right user and access token.");
+                        return;
+                    } else if (response.body().routes().size() < 1) {
+                        Log.d(TAG, "No routes found");
+                        return;
+                    }
+                    Log.d(TAG, "Response from mapbox: " + response.body().toString());
+                    // Get the directions route
+                    DirectionsRoute currentRoute = response.body().routes().get(0);
+
+                    // Make a toast which displays the route's distance
+                    Toast.makeText(getContext(), String.format(
+                            getString(R.string.directions_activity_toast_message),
+                            currentRoute.distance()), Toast.LENGTH_SHORT).show();
+
+                    if (mapboxMap != null) {
+                        mapboxMap.getStyle(style -> {
+                            // Retrieve and update the source designated for showing the directions route
+                            GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
+
+                            // Create a LineString with the directions route's geometry and
+                            // reset the GeoJSON source for the route LineLayer source
+                            if (source != null) {
+                                Log.d(TAG, "onResponse: source != null");
+                                source.setGeoJson(FeatureCollection.fromFeature(
+                                        Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
+                                                PRECISION_6))));
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
+                    Log.e(TAG, "Error: " + throwable.getMessage());
+                    Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        private static class LoadGeoJsonDataTask extends AsyncTask<Void, Void, FeatureCollection> {
+
+            private final WeakReference<Activity> activityRef;
+            private final MapboxMap mapboxMap;
+            private GeoJsonSource source;
+            private FeatureCollection featureCollection;
+
+
+            LoadGeoJsonDataTask(Activity activity, MapboxMap mapboxMap) {
+                this.activityRef = new WeakReference<>(activity);
+                this.mapboxMap = mapboxMap;
+                //this.featureCollection = GalleryFragment.featureCollection;
+
+            }
+
+            @Override
+            protected FeatureCollection doInBackground(Void... params) {
+                Activity activity = activityRef.get();
+
+                if (activity == null) {
+                    return null;
+                }
+
+                return FeatureCollection.fromFeatures(loadGeoJsonFromAsset(activity));
+
+            }
+
+            @Override
+            protected void onPostExecute(FeatureCollection featureCollection) {
+                super.onPostExecute(featureCollection);
+                Activity activity = activityRef.get();
+
+                if (featureCollection == null || activity == null) {
+                    return;
+                }
+
+                for (Feature singleFeature : featureCollection.features()) {
+                    singleFeature.addBooleanProperty(PROPERTY_SELECTED, false);
+                }
+
+                this.featureCollection = featureCollection;
+                if (mapboxMap != null) {
+                    mapboxMap.getStyle(style -> {
+                        source = new GeoJsonSource(GEOJSON_SOURCE_ID, featureCollection);
+                        style.addSource(source);
+                        style.addImage(MARKER_IMAGE_ID, BitmapFactory.decodeResource(
+                                activity.getResources(), R.drawable.bikes_logo_50));
+                        style.addImage(GREY_IMAGE_ID, BitmapFactory.decodeResource(
+                                activity.getResources(), R.drawable.bikes_logo_grey));
+                        style.addLayer(new SymbolLayer(MARKER_LAYER_ID, GEOJSON_SOURCE_ID)
+                                .withProperties(
+                                        iconSize(0.025f),
+                                        iconImage(
+                                                switchCase(
+                                                        Expression.get("is_empty"), literal(GREY_IMAGE_ID),
+                                                        literal(MARKER_IMAGE_ID) // default value
+                                                )
+                                        ),
+                                        iconAllowOverlap(true),
+                                        iconOffset(new Float[]{0f, -8f})
+                                ));
+                    });
+                }
+            }
+
+            static List<Feature> loadGeoJsonFromAsset(Context context) {
+                List<Feature> features = new ArrayList<>();
+
+                try {
+                    String response = getRestApi("https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=3790d87f2538477738d9f1b19723c8194f16779a");
+                    JSONArray standData = new JSONArray(response);
+                    GsonBuilder builder = new GsonBuilder();
+                    builder.setPrettyPrinting().serializeNulls();
+                    Gson gson = builder.create();
+                    for (int i = 0; i < standData.length(); i++) {
+                        JSONObject object = standData.getJSONObject(i);
+                        JsonObject properties = new JsonObject();
+                        BikesData bd = gson.fromJson(object.toString(), BikesData.class);
+                        properties.add("name", gson.toJsonTree(bd.getName()));
+                        properties.add("address", gson.toJsonTree(bd.getAddress()));
+                        properties.add(AVAILABLE_BIKE_STANDS, gson.toJsonTree(bd.getAvailable_bike_stands()));
+                        properties.add(AVAILABLE_BIKES, gson.toJsonTree(bd.getAvailable_bikes()));
+                        properties.add("bike_stands", gson.toJsonTree(bd.getBike_stands()));
+                        properties.add("is_empty", gson.toJsonTree(bd.isEmpty()));
+                        properties.add("is_full", gson.toJsonTree(bd.isFull()));
+                        properties.add("type", gson.toJsonTree("bike"));
+                        Feature f = Feature
+                                .fromGeometry(Point.fromLngLat(bd.getPosition().getLng(), bd.getPosition().getLat()), properties, String.valueOf(bd.getNumber()));
+                        features.add(f);
+                    }
+
+                } catch (Exception exception) {
+                    throw new RuntimeException(exception);
+                }
+                return features;
+            }
+        }
+
+        public static String getRestApi (String url) throws NullPointerException {
+            OkHttpClient client = new OkHttpClient();
+            Request request = new Request.Builder()
+                    .url(url)
+                    .build();
+            try {
+                okhttp3.Response response = client.newCall(request).execute();
+                return Objects.requireNonNull(response.body()).string();
+            } catch (IOException e) {
+                e.printStackTrace();
+                return "IO-Error";
+            }
+
+        }
 
 }
