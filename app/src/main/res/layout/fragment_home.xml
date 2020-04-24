@@ -58,7 +58,8 @@
             android:layout_margin="15dp"
             android:id="@+id/info_frame"
             android:animateLayoutChanges="true"
-            android:visibility="gone" >
+            android:visibility="gone"
+            >
 
             <LinearLayout android:orientation="vertical"
                 android:layout_width="match_parent"
@@ -83,6 +84,24 @@
                     android:textColorLink="@color/mapbox_blue"
                     android:textSize="16sp"
                     android:typeface="sans" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:id="@+id/customPanel"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:id="@+id/customFeatureIcon"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"/>
+
+                    <TextView
+                        android:id="@+id/customFeatureText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"/>
+                </LinearLayout>
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/get_directions"
