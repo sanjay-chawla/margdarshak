@@ -23,7 +23,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     - uses: actions/checkout@v2
-    - name: Decrypt large secret
+    - name: Decrypt json
       run: ./.github/workflows/decrypt_json.sh
       env:
         DECRYPT_PP: ${{ secrets.DECRYPT_PP }}
@@ -33,4 +33,4 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: app
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: app/build/outputs/apk/prod/debug/app-prod-debug.apk
