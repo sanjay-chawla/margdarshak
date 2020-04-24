@@ -18,7 +18,6 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -81,6 +80,7 @@ import com.margdarshak.RouteFragment;
 import com.margdarshak.routing.MargdarshakDirection;
 import com.margdarshak.routing.OSRMService;
 import com.margdarshak.ui.data.model.BikesData;
+import com.margdarshak.ui.data.model.BusData;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -144,6 +144,7 @@ public class HomeFragment extends Fragment implements
     public static final int CAMERA_ANIMATION_TIME = 2000;
     private static final int PLACE_SELECTOR_REQUEST_CODE = 899;
     private static final String PLACE_PICKER_LAYER_ID = "place-picker-layer-id";
+    public static final String ROUTES = "Routes";
     private MapboxMap mapboxMap;
     private ImageButton myLocationButton;
     private Chip getDirectionButton;
@@ -195,9 +196,10 @@ public class HomeFragment extends Fragment implements
                             iconImage(PLACE_MARKER),
                             iconIgnorePlacement(true),
                             iconAllowOverlap(true),
-                            iconOffset(new Float[] {0f, -8f})
+                            iconOffset(new Float[]{0f, -8f})
                     ));
                     new LoadGeoJsonDataTask(getActivity(), mapboxMap).execute();
+                    new LoadGeoJsonDataTask_bus(getActivity(), mapboxMap).execute();
                 });
         setUpSearch();
         mapboxMap.addOnMapClickListener(point -> {
@@ -214,8 +216,8 @@ public class HomeFragment extends Fragment implements
         homeViewModel.getRoutes().observe(getViewLifecycleOwner(), routes -> {
 
             if (mapboxMap != null) {
-                for (DirectionsRoute route: routes) {
-                    mapboxMap.getStyle( style -> {
+                for (DirectionsRoute route : routes) {
+                    mapboxMap.getStyle(style -> {
                         Log.d(TAG, "onResponse: source != null");
                         LineString ls = LineString.fromPolyline(route.geometry(),
                                 PRECISION_6);
@@ -230,10 +232,10 @@ public class HomeFragment extends Fragment implements
             hideRouteFragment();
             setUpSearch();
             if (mapboxMap != null) {
-                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
-                    if(route != selectedRoute) {
-                        mapboxMap.getStyle( style -> {
-                            style.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                for (DirectionsRoute route : homeViewModel.getRoutes().getValue()) {
+                    if (route != selectedRoute) {
+                        mapboxMap.getStyle(style -> {
+                            style.removeLayer(ROUTE_LAYER_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
                         });
                     }
                 }
@@ -253,30 +255,18 @@ public class HomeFragment extends Fragment implements
 
     private Feature getPointFeatures(LatLng point) {
         PointF screenPoint = mapboxMap.getProjection().toScreenLocation(point);
-        List<Feature> features = mapboxMap.queryRenderedFeatures(screenPoint, MARKER_LAYER_ID);
+        List<Feature> features = mapboxMap.queryRenderedFeatures(screenPoint, MARKER_LAYER_ID, BUS_MARKER_LAYER_ID);
         Feature feature = null;
         if (!features.isEmpty()) {
             feature = features.get(0);
-
-            StringBuilder stringBuilder = new StringBuilder();
-
-            if (feature.properties() != null) {
-                for (Map.Entry<String, JsonElement> entry : feature.properties().entrySet()) {
-                    if(AVAILABLE_BIKE_STANDS.equals(entry.getKey()) || AVAILABLE_BIKES.equals(entry.getKey())) {
-                        Log.d(TAG, entry.getKey());
-                        stringBuilder.append(String.format("%s - %s", entry.getKey(), (int) Float.parseFloat(String.valueOf(entry.getValue()))));
-                        stringBuilder.append(System.getProperty("line.separator"));
-                    }
-                }
-            }
-            feature.addStringProperty("text", stringBuilder.toString());
             // TODO: use features if needed
-            Toast.makeText(getActivity(), stringBuilder.toString(), Toast.LENGTH_SHORT).show();
+            //Toast.makeText(getActivity(), stringBuilder.toString(), Toast.LENGTH_SHORT).show();
         } else {
             // Toast.makeText(getActivity(), "No properties found", Toast.LENGTH_SHORT).show();
         }
         return feature;
     }
+
     private void makeGeocodeSearch(final LatLng latLng) {
         try {
             mapboxMap.getStyle(loadedMapStyle -> {
@@ -331,12 +321,35 @@ public class HomeFragment extends Fragment implements
         getView().findViewById(R.id.close_info).setOnClickListener(v -> {
             infoCard.setVisibility(View.GONE);
         });
-        if(customFeature != null){
-            ((TextView) getView().findViewById(R.id.selected_location_info_text)).setText("DublinBikes: " + customFeature.getStringProperty("name"));
-            ((TextView) getView().findViewById(R.id.selected_location_info_address)).setText(customFeature.getStringProperty("address"));
+        if (customFeature != null) {
+            if (customFeature.properties() != null) {
+                StringBuilder stringBuilder = new StringBuilder();
+                for (Map.Entry<String, JsonElement> entry : customFeature.properties().entrySet()) {
+                    if (customFeature.getStringProperty("type").equals("bus")) {
+                        ((TextView) getView().findViewById(R.id.selected_location_info_text)).setText("DublinBus Stop: " + customFeature.getStringProperty("stopid"));
+                        ((TextView) getView().findViewById(R.id.selected_location_info_address)).setText(customFeature.getStringProperty("name"));
+                        ((ImageView) getView().findViewById(R.id.customFeatureIcon)).setImageResource(R.drawable.bus);
+                        if (ROUTES.equals(entry.getKey())) {
+                            String arrayString = entry.getValue().toString();
+                            arrayString = arrayString.replace("[","");
+                            arrayString = arrayString.replace("]","");
+                            arrayString = arrayString.replace("\""," ");
+                            stringBuilder.append(String.format("%s - %s", entry.getKey(), arrayString));
+                            stringBuilder.append(System.getProperty("line.separator"));
+                        }
+                    } else if (customFeature.getStringProperty("type").equals("bike")) {
+                        ((TextView) getView().findViewById(R.id.selected_location_info_text)).setText("DublinBikes: " + customFeature.getStringProperty("name"));
+                        ((TextView) getView().findViewById(R.id.selected_location_info_address)).setText(customFeature.getStringProperty("address"));
+                        ((ImageView) getView().findViewById(R.id.customFeatureIcon)).setImageResource(R.drawable.bikes_logo_50);
+                        if (AVAILABLE_BIKE_STANDS.equals(entry.getKey()) || AVAILABLE_BIKES.equals(entry.getKey())) {
+                            stringBuilder.append(String.format("%s - %s", entry.getKey(), (int) Float.parseFloat(String.valueOf(entry.getValue()))));
+                            stringBuilder.append(System.getProperty("line.separator"));
+                        }
+                    }
+                    ((TextView) getView().findViewById(R.id.customFeatureText)).setText(stringBuilder);
+                }
+            }
             getView().findViewById(R.id.customPanel).setVisibility(View.VISIBLE);
-            ((ImageView)getView().findViewById(R.id.customFeatureIcon)).setImageResource(R.drawable.bikes_logo_50);
-            ((TextView)getView().findViewById(R.id.customFeatureText)).setText(customFeature.getStringProperty("text"));
         } else {
             ((TextView) getView().findViewById(R.id.selected_location_info_text)).setText(carmenFeature.text());
             String address = carmenFeature.placeName().replaceFirst(carmenFeature.text().concat(", "), "");
@@ -349,7 +362,7 @@ public class HomeFragment extends Fragment implements
         infoCard.setVisibility(View.GONE);
     }
 
-    private void setUpSearchFragment(Bundle savedInstanceState){
+    private void setUpSearchFragment(Bundle savedInstanceState) {
         if (savedInstanceState == null) {
             PlaceOptions placeOptions = PlaceOptions.builder()
                     .backgroundColor(getResources().getColor(R.color.colorWhite, null))
@@ -367,9 +380,9 @@ public class HomeFragment extends Fragment implements
         }
     }
 
-    private void setUpRouteFragment(Bundle savedInstanceState){
+    private void setUpRouteFragment(Bundle savedInstanceState) {
         if (savedInstanceState == null) {
-            if(mapboxMap!=null && selectedPoint != null){
+            if (mapboxMap != null && selectedPoint != null) {
                 Location currentLocation = mapboxMap.getLocationComponent().getLastKnownLocation();
                 routeFragment = RouteFragment.newInstance(1, selectedPoint.center().latitude(), selectedPoint.center().longitude(),
                         currentLocation.getLatitude(), currentLocation.getLongitude());
@@ -386,7 +399,7 @@ public class HomeFragment extends Fragment implements
         }
     }
 
-    private void showRouteFragment(){
+    private void showRouteFragment() {
         getView().findViewById(R.id.route_lower).setVisibility(View.VISIBLE);
         getView().findViewById(R.id.route_upper).setVisibility(View.VISIBLE);
         ((TextInputEditText) getView().findViewById(R.id.destination_text)).setText(selectedPoint.placeName());
@@ -399,11 +412,11 @@ public class HomeFragment extends Fragment implements
             hideRouteFragment();
             setUpSearch();
             if (mapboxMap != null) {
-                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
-                    mapboxMap.getStyle( style -> {
-                        style.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                for (DirectionsRoute route : homeViewModel.getRoutes().getValue()) {
+                    mapboxMap.getStyle(style -> {
+                        style.removeLayer(ROUTE_LAYER_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
                         style.removeLayer(ICON_LAYER_ID);
-                        style.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                        style.removeSource(ROUTE_SOURCE_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
                     });
                 }
             }
@@ -415,7 +428,7 @@ public class HomeFragment extends Fragment implements
 
     }
 
-    private void hideRouteFragment(){
+    private void hideRouteFragment() {
         getView().findViewById(R.id.route_lower).setVisibility(View.GONE);
         getView().findViewById(R.id.route_upper).setVisibility(View.GONE);
         getChildFragmentManager().beginTransaction()
@@ -429,7 +442,7 @@ public class HomeFragment extends Fragment implements
         });
     }
 
-    private void hideSearch(){
+    private void hideSearch() {
         contractSearch(autocompleteFragment);
         searchTextBox.setVisibility(View.GONE);
     }
@@ -450,7 +463,7 @@ public class HomeFragment extends Fragment implements
                     GeoJsonSource source = loadedMapStyle.getSourceAs(PLACE_ICON_SOURCE_ID);
                     if (source != null) {
                         source.setGeoJson(FeatureCollection.fromFeatures(
-                                new Feature[] {Feature.fromJson(carmenFeature.toJson())}));
+                                new Feature[]{Feature.fromJson(carmenFeature.toJson())}));
                     }
                     //loadedMapStyle.removeLayer(ROUTE_LAYER_ID);
                     // Move map camera to the selected location
@@ -471,14 +484,14 @@ public class HomeFragment extends Fragment implements
                 finish();
             }
 
-            private void finish(){
+            private void finish() {
                 imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
                 contractSearch(autocompleteFragment);
             }
         });
 
         searchTextBox.setOnFocusChangeListener((view, hasFocus) -> {
-            if(hasFocus) {
+            if (hasFocus) {
                 expandSearch(autocompleteFragment, imm);
             }
         });
@@ -492,19 +505,19 @@ public class HomeFragment extends Fragment implements
         RecyclerView resultView = autocompleteFragment.getView().findViewById(R.id.rv_search_results);
         autocompleteFragment.getView().setFocusableInTouchMode(true);
         autocompleteFragment.getView().findViewById(R.id.edittext_search).setOnKeyListener((view1, keyCode, keyEvent) -> {
-            if(keyCode == KeyEvent.KEYCODE_ENTER){
+            if (keyCode == KeyEvent.KEYCODE_ENTER) {
                 imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
                 fragmentSearch.clearFocus();
                 int resultCount = resultView.getAdapter().getItemCount();
-                if(fragmentSearch.getText().length() < 3){
+                if (fragmentSearch.getText().length() < 3) {
                     Toast.makeText(autocompleteFragment.getActivity(), "Enter at least 3 characters for accurate results", Toast.LENGTH_LONG).show();
-                } else if(resultCount == 0){
+                } else if (resultCount == 0) {
                     Toast.makeText(autocompleteFragment.getActivity(), "No result found", Toast.LENGTH_LONG).show();
                 } else {
                     Toast.makeText(autocompleteFragment.getActivity(), "No place selected", Toast.LENGTH_LONG).show();
                 }
                 return true;
-            } else if(keyCode == KeyEvent.KEYCODE_BACK){
+            } else if (keyCode == KeyEvent.KEYCODE_BACK) {
                 autocompleteFragment.onBackButtonPress();
                 return true;
             }
@@ -527,8 +540,8 @@ public class HomeFragment extends Fragment implements
                 .target(new LatLng(latitude, longitude))
                 .zoom(14) // Sets the zoom
                 .build(); // Creates a CameraPosition from the builder
-       mapboxMap.animateCamera(CameraUpdateFactory.newCameraPosition(position), CAMERA_ANIMATION_TIME);
-       return position;
+        mapboxMap.animateCamera(CameraUpdateFactory.newCameraPosition(position), CAMERA_ANIMATION_TIME);
+        return position;
 
     }
 
@@ -541,7 +554,7 @@ public class HomeFragment extends Fragment implements
     }
 
     @SuppressWarnings("MissingPermission")
-    private void initializeLocationEngine(){
+    private void initializeLocationEngine() {
         locationEngine = LocationEngineProvider.getBestLocationEngine(getContext());
         locationEngine.getLastLocation(new LocationEngineCallback<LocationEngineResult>() {
             @Override
@@ -559,7 +572,7 @@ public class HomeFragment extends Fragment implements
     }
 
     @SuppressWarnings("MissingPermission")
-    private void initializeLocationComponent(@NonNull Style loadedMapStyle){
+    private void initializeLocationComponent(@NonNull Style loadedMapStyle) {
         locationComponent = mapboxMap.getLocationComponent();
         // Activate with options
         locationComponent.activateLocationComponent(
@@ -567,7 +580,7 @@ public class HomeFragment extends Fragment implements
                         .builder(getContext(), loadedMapStyle)
                         .build());
         locationComponent.setLocationComponentEnabled(true);
-        locationComponent.setCameraMode(CameraMode.TRACKING, CAMERA_ANIMATION_TIME, (double)14, null, null, null);
+        locationComponent.setCameraMode(CameraMode.TRACKING, CAMERA_ANIMATION_TIME, (double) 14, null, null, null);
         locationComponent.setRenderMode(RenderMode.COMPASS);
         locationComponent.addOnCameraTrackingChangedListener(new OnCameraTrackingChangedListener() {
             @Override
@@ -575,13 +588,14 @@ public class HomeFragment extends Fragment implements
                 Log.d(TAG, "tracking dismissed");
                 myLocationButton.setVisibility(View.VISIBLE);
             }
+
             @Override
             public void onCameraTrackingChanged(int currentMode) {
             }
         });
     }
 
-    @SuppressWarnings( {"MissingPermission"})
+    @SuppressWarnings({"MissingPermission"})
     private void enableLocationComponent(@NonNull Style loadedMapStyle) {
         // Check if permissions are enabled and if not request
         if (PermissionsManager.areLocationPermissionsGranted(getContext())) {
@@ -589,13 +603,13 @@ public class HomeFragment extends Fragment implements
             initializeLocationComponent(loadedMapStyle);
             myLocationButton.setOnClickListener(v -> {
                 myLocationButton.setVisibility(View.INVISIBLE);
-                locationComponent.setCameraMode(CameraMode.TRACKING, CAMERA_ANIMATION_TIME, (double)14, null, null, null);
+                locationComponent.setCameraMode(CameraMode.TRACKING, CAMERA_ANIMATION_TIME, (double) 14, null, null, null);
             });
 
 
             // TODO: remove this
             getDirectionButton.setOnClickListener(view -> {
-                if(selectedPoint != null) {
+                if (selectedPoint != null) {
                     mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
                         Location currentLocation = mapboxMap.getLocationComponent().getLastKnownLocation();
                         Point origin = Point.fromLngLat(selectedPoint.center().longitude(), selectedPoint.center().latitude());
@@ -610,9 +624,9 @@ public class HomeFragment extends Fragment implements
                                 iconImage(RED_PIN_ICON_ID),
                                 iconIgnorePlacement(true),
                                 iconAllowOverlap(true),
-                                iconOffset(new Float[] {0f, -9f})));
+                                iconOffset(new Float[]{0f, -9f})));
 
-                        GeoJsonSource iconGeoJsonSource = new GeoJsonSource(ICON_SOURCE_ID, FeatureCollection.fromFeatures(new Feature[] {
+                        GeoJsonSource iconGeoJsonSource = new GeoJsonSource(ICON_SOURCE_ID, FeatureCollection.fromFeatures(new Feature[]{
                                 Feature.fromGeometry(Point.fromLngLat(origin.longitude(), origin.latitude())),
                                 Feature.fromGeometry(Point.fromLngLat(destination.longitude(), destination.latitude()))}));
                         style.addSource(iconGeoJsonSource);
@@ -624,10 +638,10 @@ public class HomeFragment extends Fragment implements
 
                         getView().findViewById(R.id.route_walk).setOnClickListener(v -> {
                             if (mapboxMap != null) {
-                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
-                                    mapboxMap.getStyle( s -> {
-                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
-                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                for (DirectionsRoute route : homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle(s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
                                     });
                                 }
                             }
@@ -635,10 +649,10 @@ public class HomeFragment extends Fragment implements
                         });
                         getView().findViewById(R.id.route_bike).setOnClickListener(v -> {
                             if (mapboxMap != null) {
-                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
-                                    mapboxMap.getStyle( s -> {
-                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
-                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                for (DirectionsRoute route : homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle(s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
                                     });
                                 }
                             }
@@ -646,10 +660,10 @@ public class HomeFragment extends Fragment implements
                         });
                         getView().findViewById(R.id.route_bus).setOnClickListener(v -> {
                             if (mapboxMap != null) {
-                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
-                                    mapboxMap.getStyle( s -> {
-                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
-                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                for (DirectionsRoute route : homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle(s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
                                     });
                                 }
                             }
@@ -657,10 +671,10 @@ public class HomeFragment extends Fragment implements
                         });
                         getView().findViewById(R.id.route_drive).setOnClickListener(v -> {
                             if (mapboxMap != null) {
-                                for (DirectionsRoute route: homeViewModel.getRoutes().getValue()) {
-                                    mapboxMap.getStyle( s -> {
-                                        s.removeLayer(ROUTE_LAYER_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
-                                        s.removeSource(ROUTE_SOURCE_ID.concat("_"+route.routeOptions().profile()).concat("_"+route.routeIndex()));
+                                for (DirectionsRoute route : homeViewModel.getRoutes().getValue()) {
+                                    mapboxMap.getStyle(s -> {
+                                        s.removeLayer(ROUTE_LAYER_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
+                                        s.removeSource(ROUTE_SOURCE_ID.concat("_" + route.routeOptions().profile()).concat("_" + route.routeIndex()));
                                     });
                                 }
                             }
@@ -681,15 +695,15 @@ public class HomeFragment extends Fragment implements
                             .useDefaultLocationEngine(false)
                             .build());
             locationComponent.setLocationComponentEnabled(false);
-            locationComponent.setCameraMode(CameraMode.TRACKING, CAMERA_ANIMATION_TIME, (double)14, null, null, null);
+            locationComponent.setCameraMode(CameraMode.TRACKING, CAMERA_ANIMATION_TIME, (double) 14, null, null, null);
             locationComponent.setRenderMode(RenderMode.COMPASS);
         }
     }
 
 
-    private void initRouteSource(@NonNull Style loadedMapStyle, int routeNumber,String profile, Feature feature) {
+    private void initRouteSource(@NonNull Style loadedMapStyle, int routeNumber, String profile, Feature feature) {
         feature.addStringProperty("profile", profile);
-        loadedMapStyle.addSource(new GeoJsonSource(ROUTE_SOURCE_ID.concat("_"+profile).concat("_"+routeNumber),
+        loadedMapStyle.addSource(new GeoJsonSource(ROUTE_SOURCE_ID.concat("_" + profile).concat("_" + routeNumber),
                 FeatureCollection.fromFeature(feature)));
     }
 
@@ -720,246 +734,323 @@ public class HomeFragment extends Fragment implements
             loadedMapStyle.addLayer(routeLayer);
         } else {
             loadedMapStyle.addLayerBelow(routeLayer, ROUTE_LAYER_ID.concat("_" + profile).concat("_0"));
-
-            // Add icons
-            loadedMapStyle.addImage(RED_PIN_ICON_ID, BitmapFactory.decodeResource(getResources(),
-                    R.drawable.mapbox_marker_icon_default));
-
-            // Add icon-layers to the map
-            loadedMapStyle.addLayer(new SymbolLayer(ICON_LAYER_ID, ICON_SOURCE_ID).withProperties(
-                    iconImage(RED_PIN_ICON_ID),
-                    iconIgnorePlacement(true),
-                    iconAllowOverlap(true),
-                    iconOffset(new Float[]{0f, -9f})));
         }
     }
-        private void getRoute (MapboxMap mapboxMap, Point origin, Point destination){
-            MapboxService<DirectionsResponse, DirectionsService> client = MapboxDirections.builder()
-                    .origin(origin)
-                    .destination(destination)
-                    .overview(DirectionsCriteria.OVERVIEW_FULL)
-                    .profile(DirectionsCriteria.PROFILE_DRIVING)
-                    .accessToken(getString(R.string.mapbox_access_token))
-                    .build();
-            client.enqueueCall(new Callback<DirectionsResponse>() {
-                @Override
-                public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
-                    Log.d(TAG, "call success with response: " + response);
 
-                    // You can get the generic HTTP info about the response
-                    Log.d(TAG, "Response code: " + response.code());
-                    if (response.body() == null) {
-                        Log.d(TAG, "No routes found, make sure you set the right user and access token.");
-                        return;
-                    } else if (response.body().routes().size() < 1) {
-                        Log.d(TAG, "No routes found");
-                        return;
-                    }
-                    Log.d(TAG, "Response from mapbox: " + response.body().toString());
-                    // Get the directions route
-                    DirectionsRoute currentRoute = response.body().routes().get(0);
-
-                    // Make a toast which displays the route's distance
-                    Toast.makeText(getContext(), String.format(
-                            getString(R.string.directions_activity_toast_message),
-                            currentRoute.distance()), Toast.LENGTH_SHORT).show();
-
-                    if (mapboxMap != null) {
-                        mapboxMap.getStyle(style -> {
-                            // Retrieve and update the source designated for showing the directions route
-                            GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
-
-                            // Create a LineString with the directions route's geometry and
-                            // reset the GeoJSON source for the route LineLayer source
-                            if (source != null) {
-                                Log.d(TAG, "onResponse: source != null");
-                                source.setGeoJson(FeatureCollection.fromFeature(
-                                        Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
-                                                PRECISION_6))));
-                            }
-                        });
-                    }
-                }
-
-                @Override
-                public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
-                    Log.e(TAG, "Error: " + throwable.getMessage());
-                    Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
-                            Toast.LENGTH_SHORT).show();
-                }
-            });
-
-        }
-
-        private void getRouteCustom (MapboxMap mapboxMap, Point origin, Point destination){
-            MapboxService<DirectionsResponse, OSRMService> client = MargdarshakDirection.builder()
-                    .origin(origin)
-                    .destination(destination)
-                    .overview(DirectionsCriteria.OVERVIEW_FULL)
-                    .profile(DirectionsCriteria.PROFILE_DRIVING)
-                    .baseUrl("http://34.93.158.237:5000/")
-                    .accessToken(getString(R.string.mapbox_access_token))
-                    .build();
-            client.enqueueCall(new Callback<DirectionsResponse>() {
-                @Override
-                public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
-                    Log.d(TAG, "call success with response: " + response);
-
-                    // You can get the generic HTTP info about the response
-                    Log.d(TAG, "Response code: " + response.code());
-                    if (response.body() == null) {
-                        Log.d(TAG, "No routes found, make sure you set the right user and access token.");
-                        return;
-                    } else if (response.body().routes().size() < 1) {
-                        Log.d(TAG, "No routes found");
-                        return;
-                    }
-                    Log.d(TAG, "Response from mapbox: " + response.body().toString());
-                    // Get the directions route
-                    DirectionsRoute currentRoute = response.body().routes().get(0);
-
-                    // Make a toast which displays the route's distance
-                    Toast.makeText(getContext(), String.format(
-                            getString(R.string.directions_activity_toast_message),
-                            currentRoute.distance()), Toast.LENGTH_SHORT).show();
-
-                    if (mapboxMap != null) {
-                        mapboxMap.getStyle(style -> {
-                            // Retrieve and update the source designated for showing the directions route
-                            GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
-
-                            // Create a LineString with the directions route's geometry and
-                            // reset the GeoJSON source for the route LineLayer source
-                            if (source != null) {
-                                Log.d(TAG, "onResponse: source != null");
-                                source.setGeoJson(FeatureCollection.fromFeature(
-                                        Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
-                                                PRECISION_6))));
-                            }
-                        });
-                    }
-                }
-
-                @Override
-                public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
-                    Log.e(TAG, "Error: " + throwable.getMessage());
-                    Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
-                            Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-
-        private static class LoadGeoJsonDataTask extends AsyncTask<Void, Void, FeatureCollection> {
-
-            private final WeakReference<Activity> activityRef;
-            private final MapboxMap mapboxMap;
-            private GeoJsonSource source;
-            private FeatureCollection featureCollection;
-
-
-            LoadGeoJsonDataTask(Activity activity, MapboxMap mapboxMap) {
-                this.activityRef = new WeakReference<>(activity);
-                this.mapboxMap = mapboxMap;
-                //this.featureCollection = GalleryFragment.featureCollection;
-
-            }
-
+    private void getRoute(MapboxMap mapboxMap, Point origin, Point destination) {
+        MapboxService<DirectionsResponse, DirectionsService> client = MapboxDirections.builder()
+                .origin(origin)
+                .destination(destination)
+                .overview(DirectionsCriteria.OVERVIEW_FULL)
+                .profile(DirectionsCriteria.PROFILE_DRIVING)
+                .accessToken(getString(R.string.mapbox_access_token))
+                .build();
+        client.enqueueCall(new Callback<DirectionsResponse>() {
             @Override
-            protected FeatureCollection doInBackground(Void... params) {
-                Activity activity = activityRef.get();
+            public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
+                Log.d(TAG, "call success with response: " + response);
 
-                if (activity == null) {
-                    return null;
-                }
-
-                return FeatureCollection.fromFeatures(loadGeoJsonFromAsset(activity));
-
-            }
-
-            @Override
-            protected void onPostExecute(FeatureCollection featureCollection) {
-                super.onPostExecute(featureCollection);
-                Activity activity = activityRef.get();
-
-                if (featureCollection == null || activity == null) {
+                // You can get the generic HTTP info about the response
+                Log.d(TAG, "Response code: " + response.code());
+                if (response.body() == null) {
+                    Log.d(TAG, "No routes found, make sure you set the right user and access token.");
+                    return;
+                } else if (response.body().routes().size() < 1) {
+                    Log.d(TAG, "No routes found");
                     return;
                 }
+                Log.d(TAG, "Response from mapbox: " + response.body().toString());
+                // Get the directions route
+                DirectionsRoute currentRoute = response.body().routes().get(0);
 
-                for (Feature singleFeature : featureCollection.features()) {
-                    singleFeature.addBooleanProperty(PROPERTY_SELECTED, false);
-                }
+                // Make a toast which displays the route's distance
+                Toast.makeText(getContext(), String.format(
+                        getString(R.string.directions_activity_toast_message),
+                        currentRoute.distance()), Toast.LENGTH_SHORT).show();
 
-                this.featureCollection = featureCollection;
                 if (mapboxMap != null) {
                     mapboxMap.getStyle(style -> {
-                        source = new GeoJsonSource(GEOJSON_SOURCE_ID, featureCollection);
-                        style.addSource(source);
-                        style.addImage(MARKER_IMAGE_ID, BitmapFactory.decodeResource(
-                                activity.getResources(), R.drawable.bikes_logo_50));
-                        style.addImage(GREY_IMAGE_ID, BitmapFactory.decodeResource(
-                                activity.getResources(), R.drawable.bikes_logo_grey));
-                        style.addLayer(new SymbolLayer(MARKER_LAYER_ID, GEOJSON_SOURCE_ID)
-                                .withProperties(
-                                        iconSize(0.025f),
-                                        iconImage(
-                                                switchCase(
-                                                        Expression.get("is_empty"), literal(GREY_IMAGE_ID),
-                                                        literal(MARKER_IMAGE_ID) // default value
-                                                )
-                                        ),
-                                        iconAllowOverlap(true),
-                                        iconOffset(new Float[]{0f, -8f})
-                                ));
+                        // Retrieve and update the source designated for showing the directions route
+                        GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
+
+                        // Create a LineString with the directions route's geometry and
+                        // reset the GeoJSON source for the route LineLayer source
+                        if (source != null) {
+                            Log.d(TAG, "onResponse: source != null");
+                            source.setGeoJson(FeatureCollection.fromFeature(
+                                    Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
+                                            PRECISION_6))));
+                        }
                     });
                 }
             }
 
-            static List<Feature> loadGeoJsonFromAsset(Context context) {
-                List<Feature> features = new ArrayList<>();
+            @Override
+            public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
+                Log.e(TAG, "Error: " + throwable.getMessage());
+                Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
 
-                try {
-                    String response = getRestApi("https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=3790d87f2538477738d9f1b19723c8194f16779a");
-                    JSONArray standData = new JSONArray(response);
-                    GsonBuilder builder = new GsonBuilder();
-                    builder.setPrettyPrinting().serializeNulls();
-                    Gson gson = builder.create();
-                    for (int i = 0; i < standData.length(); i++) {
-                        JSONObject object = standData.getJSONObject(i);
-                        JsonObject properties = new JsonObject();
-                        BikesData bd = gson.fromJson(object.toString(), BikesData.class);
-                        properties.add("name", gson.toJsonTree(bd.getName()));
-                        properties.add("address", gson.toJsonTree(bd.getAddress()));
-                        properties.add(AVAILABLE_BIKE_STANDS, gson.toJsonTree(bd.getAvailable_bike_stands()));
-                        properties.add(AVAILABLE_BIKES, gson.toJsonTree(bd.getAvailable_bikes()));
-                        properties.add("bike_stands", gson.toJsonTree(bd.getBike_stands()));
-                        properties.add("is_empty", gson.toJsonTree(bd.isEmpty()));
-                        properties.add("is_full", gson.toJsonTree(bd.isFull()));
-                        properties.add("type", gson.toJsonTree("bike"));
-                        Feature f = Feature
-                                .fromGeometry(Point.fromLngLat(bd.getPosition().getLng(), bd.getPosition().getLat()), properties, String.valueOf(bd.getNumber()));
-                        features.add(f);
-                    }
+    }
 
-                } catch (Exception exception) {
-                    throw new RuntimeException(exception);
+    private void getRouteCustom(MapboxMap mapboxMap, Point origin, Point destination) {
+        MapboxService<DirectionsResponse, OSRMService> client = MargdarshakDirection.builder()
+                .origin(origin)
+                .destination(destination)
+                .overview(DirectionsCriteria.OVERVIEW_FULL)
+                .profile(DirectionsCriteria.PROFILE_DRIVING)
+                .baseUrl("http://34.93.158.237:5000/")
+                .accessToken(getString(R.string.mapbox_access_token))
+                .build();
+        client.enqueueCall(new Callback<DirectionsResponse>() {
+            @Override
+            public void onResponse(Call<DirectionsResponse> call, Response<DirectionsResponse> response) {
+                Log.d(TAG, "call success with response: " + response);
+
+                // You can get the generic HTTP info about the response
+                Log.d(TAG, "Response code: " + response.code());
+                if (response.body() == null) {
+                    Log.d(TAG, "No routes found, make sure you set the right user and access token.");
+                    return;
+                } else if (response.body().routes().size() < 1) {
+                    Log.d(TAG, "No routes found");
+                    return;
                 }
-                return features;
+                Log.d(TAG, "Response from mapbox: " + response.body().toString());
+                // Get the directions route
+                DirectionsRoute currentRoute = response.body().routes().get(0);
+
+                // Make a toast which displays the route's distance
+                Toast.makeText(getContext(), String.format(
+                        getString(R.string.directions_activity_toast_message),
+                        currentRoute.distance()), Toast.LENGTH_SHORT).show();
+
+                if (mapboxMap != null) {
+                    mapboxMap.getStyle(style -> {
+                        // Retrieve and update the source designated for showing the directions route
+                        GeoJsonSource source = style.getSourceAs(ROUTE_SOURCE_ID);
+
+                        // Create a LineString with the directions route's geometry and
+                        // reset the GeoJSON source for the route LineLayer source
+                        if (source != null) {
+                            Log.d(TAG, "onResponse: source != null");
+                            source.setGeoJson(FeatureCollection.fromFeature(
+                                    Feature.fromGeometry(LineString.fromPolyline(currentRoute.geometry(),
+                                            PRECISION_6))));
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onFailure(Call<DirectionsResponse> call, Throwable throwable) {
+                Log.e(TAG, "Error: " + throwable.getMessage());
+                Toast.makeText(getContext(), "Error: " + throwable.getMessage(),
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private static class LoadGeoJsonDataTask extends AsyncTask<Void, Void, FeatureCollection> {
+
+        private final WeakReference<Activity> activityRef;
+        private final MapboxMap mapboxMap;
+        private GeoJsonSource source;
+        private FeatureCollection featureCollection;
+
+
+        LoadGeoJsonDataTask(Activity activity, MapboxMap mapboxMap) {
+            this.activityRef = new WeakReference<>(activity);
+            this.mapboxMap = mapboxMap;
+            //this.featureCollection = GalleryFragment.featureCollection;
+
+        }
+
+        @Override
+        protected FeatureCollection doInBackground(Void... params) {
+            Activity activity = activityRef.get();
+
+            if (activity == null) {
+                return null;
+            }
+
+            return FeatureCollection.fromFeatures(loadGeoJsonFromAsset(activity));
+
+        }
+
+        @Override
+        protected void onPostExecute(FeatureCollection featureCollection) {
+            super.onPostExecute(featureCollection);
+            Activity activity = activityRef.get();
+
+            if (featureCollection == null || activity == null) {
+                return;
+            }
+
+            for (Feature singleFeature : featureCollection.features()) {
+                singleFeature.addBooleanProperty(PROPERTY_SELECTED, false);
+            }
+
+            this.featureCollection = featureCollection;
+            if (mapboxMap != null) {
+                mapboxMap.getStyle(style -> {
+                    source = new GeoJsonSource(GEOJSON_SOURCE_ID, featureCollection);
+                    style.addSource(source);
+                    style.addImage(MARKER_IMAGE_ID, BitmapFactory.decodeResource(
+                            activity.getResources(), R.drawable.bikes_logo_50));
+                    style.addImage(GREY_IMAGE_ID, BitmapFactory.decodeResource(
+                            activity.getResources(), R.drawable.bikes_logo_grey));
+                    style.addLayer(new SymbolLayer(MARKER_LAYER_ID, GEOJSON_SOURCE_ID)
+                            .withProperties(
+                                    iconSize(0.04f),
+                                    iconImage(
+                                            switchCase(
+                                                    Expression.get("is_empty"), literal(GREY_IMAGE_ID),
+                                                    literal(MARKER_IMAGE_ID) // default value
+                                            )
+                                    ),
+                                    iconAllowOverlap(true),
+                                    iconOffset(new Float[]{0f, -8f})
+                            ));
+                });
             }
         }
 
-        public static String getRestApi (String url) throws NullPointerException {
-            OkHttpClient client = new OkHttpClient();
-            Request request = new Request.Builder()
-                    .url(url)
-                    .build();
+        static List<Feature> loadGeoJsonFromAsset(Context context) {
+            List<Feature> features = new ArrayList<>();
+
             try {
-                okhttp3.Response response = client.newCall(request).execute();
-                return Objects.requireNonNull(response.body()).string();
-            } catch (IOException e) {
-                e.printStackTrace();
-                return "IO-Error";
+                String response = getRestApi("https://api.jcdecaux.com/vls/v1/stations?contract=dublin&apiKey=3790d87f2538477738d9f1b19723c8194f16779a");
+                JSONArray standData = new JSONArray(response);
+                GsonBuilder builder = new GsonBuilder();
+                builder.setPrettyPrinting().serializeNulls();
+                Gson gson = builder.create();
+                for (int i = 0; i < standData.length(); i++) {
+                    JSONObject object = standData.getJSONObject(i);
+                    JsonObject properties = new JsonObject();
+                    BikesData bd = gson.fromJson(object.toString(), BikesData.class);
+                    properties.add("name", gson.toJsonTree(bd.getName()));
+                    properties.add("address", gson.toJsonTree(bd.getAddress()));
+                    properties.add(AVAILABLE_BIKE_STANDS, gson.toJsonTree(bd.getAvailable_bike_stands()));
+                    properties.add(AVAILABLE_BIKES, gson.toJsonTree(bd.getAvailable_bikes()));
+                    properties.add("bike_stands", gson.toJsonTree(bd.getBike_stands()));
+                    properties.add("is_empty", gson.toJsonTree(bd.isEmpty()));
+                    properties.add("is_full", gson.toJsonTree(bd.isFull()));
+                    properties.add("type", gson.toJsonTree("bike"));
+                    Feature f = Feature
+                            .fromGeometry(Point.fromLngLat(bd.getPosition().getLng(), bd.getPosition().getLat()), properties, String.valueOf(bd.getNumber()));
+                    features.add(f);
+                }
+
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
+            }
+            return features;
+        }
+    }
+
+    private static class LoadGeoJsonDataTask_bus extends AsyncTask<Void, Void, FeatureCollection> {
+
+        private final WeakReference<Activity> activityRef;
+        private final MapboxMap mapboxMap;
+        private GeoJsonSource bussource;
+        private FeatureCollection busfeatureCollection;
+
+
+        LoadGeoJsonDataTask_bus(Activity activity, MapboxMap mapboxMap) {
+            this.activityRef = new WeakReference<>(activity);
+            this.mapboxMap = mapboxMap;
+        }
+
+
+        @Override
+        protected FeatureCollection doInBackground(Void... params) {
+            Activity activity = activityRef.get();
+
+            if (activity == null) {
+                return null;
             }
 
+            return FeatureCollection.fromFeatures(loadGeoJsonFromAsset_bus(activity));
         }
+
+        @Override
+        protected void onPostExecute(FeatureCollection busfeatureCollection) {
+            super.onPostExecute(busfeatureCollection);
+            Activity activity = activityRef.get();
+
+            if (busfeatureCollection == null || activity == null) {
+                return;
+            }
+
+            for (Feature singleFeature : busfeatureCollection.features()) {
+                singleFeature.addBooleanProperty(BUS_PROPERTY_SELECTED, false);
+            }
+
+            this.busfeatureCollection = busfeatureCollection;
+            if (mapboxMap != null) {
+                mapboxMap.getStyle(style -> {
+                    bussource = new GeoJsonSource(BUS_GEOJSON_SOURCE_ID, busfeatureCollection);
+                    style.addSource(bussource);
+                    style.addImage(BUS_MARKER_IMAGE_ID, BitmapFactory.decodeResource(
+                            activity.getResources(), R.drawable.bus));
+                    style.addLayer(new SymbolLayer(BUS_MARKER_LAYER_ID, BUS_GEOJSON_SOURCE_ID)
+                            .withProperties(
+                                    iconSize(0.05f),
+                                    iconImage(BUS_MARKER_IMAGE_ID), // default value
+                                    iconAllowOverlap(true),
+                                    iconOffset(new Float[]{0f, -8f})
+                            ));
+                });
+            }
+        }
+
+        static List<Feature> loadGeoJsonFromAsset_bus(Context context) {
+            List<Feature> features = new ArrayList<>();
+
+            try {
+                String response = getRestApi("https://data.smartdublin.ie/cgi-bin/rtpi/busstopinformation");
+                JSONObject busData = new JSONObject(response);
+                GsonBuilder builder = new GsonBuilder();
+                builder.setPrettyPrinting().serializeNulls();
+                Gson gson = builder.create();
+                JSONArray test = busData.getJSONArray("results");
+                for (int i = 0; i < test.length(); i++) {
+                    JSONObject object = test.getJSONObject(i);
+                    JsonObject properties = new JsonObject();
+                    BusData.Results bsd = gson.fromJson(object.toString(), BusData.Results.class);
+                    properties.add("stopid", gson.toJsonTree(bsd.getStopid()));
+                    properties.add("name", gson.toJsonTree(bsd.getFullname()));
+                    properties.add("type", gson.toJsonTree("bus"));
+                    for (BusData.Results.Operators op : bsd.getOperators()) {
+                        properties.add(ROUTES, gson.toJsonTree(op.getRoutes()));
+                    }
+                    Feature f = Feature
+                            .fromGeometry(Point.fromLngLat(bsd.getLongitude(), bsd.getLatitude()), properties);
+                    features.add(f);
+                }
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
+            }
+            return features;
+        }
+    }
+
+    public static String getRestApi(String url) throws NullPointerException {
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder()
+                .url(url)
+                .build();
+        try {
+            okhttp3.Response response = client.newCall(request).execute();
+            return Objects.requireNonNull(response.body()).string();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "IO-Error";
+        }
+
+    }
 
 }
